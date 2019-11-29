@@ -105,8 +105,18 @@ library(sjPlot)
 
 head(dataset)
 
-# PlotID - need to account for
+# included binomial_species or some sort of taxanonic group?
 model <- lmer(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m + (1|ProjectCode), data = dataset)
+
+summary(model)
+
+# functional type - first cut
+model <- lmer(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m * plant_functional_type + 0 + (1|ProjectCode), data = dataset)
+
+summary(model)
+
+# wind test - first cut
+model <- lmer(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m * Wind_speed + (1|ProjectCode), data = dataset)
 
 summary(model)
 
