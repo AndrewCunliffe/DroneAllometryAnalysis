@@ -49,6 +49,7 @@ library(broom)                                                                  
 #### Load data ----
 dataset <- read_excel(paste0(home, "outputs/processed_master_database.xlsx"),   # Read in summary data.
                       na = "NA")
+dataset <- read_csv("processed_master_database.csv", na = "NA")
 peak_dataset <- dataset[dataset$PeakBiomass == TRUE, ]                          # Observations from peak biomass.
 sev_dataset <- dataset[dataset$SevilletaIAV == TRUE, ]                          # Observations from Sevilleta interannual variation.
 
@@ -164,20 +165,34 @@ dev.off()
 
 #### 2. Dataset-level analysis ####
 ### Plot of mean versus median canopy height ###
+
+model_HAGs <- lmer(HAG_plotmedian_of_cellmax_m ~ HAG_plotmean_of_cellmax_m + (1|plant_functional_type/binomial_species), data = dataset)
+
+summary(model_HAGs)
+
+preds_HAGs <- ggpredict(model_HAGs, terms = c("HAG_plotmean_of_cellmax_m"))
+
+dataset_simple <- dataset %>% 
+    dplyr::select(AGB_spatially_normalised_g_m2, HAG_plotmean_of_cellmax_m) %>%
+    distinct()
+
 # Create plot
-mean_median_HAGs <- ggplot(data = dataset,
-                           aes(x <- HAG_plotmean_of_cellmax_m,
-                               y <- HAG_plotmedian_of_cellmax_m),
-                           colour = binomial_species) +
-        geom_point(shape=1, na.rm = TRUE) +
-        scale_colour_viridis_d() +
-        geom_abline(slope = 1, na.rm = TRUE, colour = "grey") +
-        theme_coding() +
-        coord_cartesian(ylim = c(0, (max_mean_hag*1.3)),
-                        xlim = c(0, (max_mean_hag*1.3)),
-                        expand=FALSE) +
-        labs(x = expression("Mean canopy height (m)"),
-             y = expression("Median canopy height (m)"))
+mean_median_HAGs <- ggplot() +
+    geom_point(data = dataset,
+               aes(x = HAG_plotmean_of_cellmax_m,
+                   y = HAG_plotmedian_of_cellmax_m, colour = plant_functional_type), shape=20, size = 2, na.rm = TRUE) +
+    geom_line(data = preds_HAGs, aes(x = x, y = predicted), size = 0.5) +
+    geom_ribbon(data = preds_HAGs, aes(ymin = conf.low, ymax = conf.high, x = x), alpha = 0.4) +
+    scale_colour_viridis_d() +
+    geom_abline(slope = 1, na.rm = TRUE, colour = "grey") +
+    theme_coding() +
+    coord_cartesian(ylim = c(0, (max_mean_hag*1.3)),
+                    xlim = c(0, (max_mean_hag*1.3)),
+                    expand=FALSE) +
+    labs(x = expression("Mean canopy height (m)"),
+         y = expression("Median canopy height (m)")) +
+    theme(legend.position = c(0.81, 0.36),
+          legend.text = element_text(size = 7.2, face = 'bold'))
 
 outfile <- file.path(loc_dataset, "Mean Vs Median HAG.png")                     # Filename for output.
 png(filename=outfile, width = 10, height = 10, units = 'cm', res = 400)         # Export plot.
@@ -188,22 +203,49 @@ dev.off()
 
 #### Scatterplot of all observations in peak dataset, by PFT ###
 # Manually specify the order of factor levels.
-peak_dataset$plant_functional_type <- factor(peak_dataset$plant_functional_type,
-                                             levels = c("Succulent",
-                                                        "Tree",
-                                                        "Shrub",
-                                                        "Forb",
-                                                        "Graminoid",
-                                                        "Fern",
-                                                        "Bryophyte"
-                                                        ))
+peak_dataset <- dataset %>% 
+    filter(PeakBiomass == T, plant_functional_type == "Succulent" | 
+               plant_functional_type == "Tree" |
+               plant_functional_type == "Shrub" |
+               plant_functional_type == "Forb" |
+               plant_functional_type == "Graminoid" |
+               plant_functional_type == "Fern" |
+               plant_functional_type == "Bryophyte") %>%
+    mutate(plant_functional_type == factor(plant_functional_type, levels = c("Succulent",
+                                             "Tree",
+                                             "Shrub",
+                                             "Forb",
+                                             "Graminoid",
+                                             "Fern",
+                                             "Bryophyte")))
+
+model_HAGs_fg <- lmer(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m + plant_functional_type + (1|binomial_species), data = peak_dataset)
+
+summary(model_HAGs_fg)
+
+preds_HAGs_fg <- ggpredict(model_HAGs_fg, terms = c("HAG_plotmean_of_cellmax_m", "plant_functional_type"))
+
+preds_HAGs_fg_B <- preds_HAGs_fg
+preds_HAGs_fg_F <- 
+preds_HAGs_fg_G <- 
+preds_HAGs_fg_S <- 
+preds_HAGs_fg_Suc <- 
+preds_HAGs_fg_T <- 
+
+dataset_simple <- peak_dataset %>% 
+    dplyr::select(AGB_spatially_normalised_g_m2, HAG_plotmean_of_cellmax_m, plant_functional_type) %>%
+    distinct()
+
 # Create scatter plot
-HAG_Vs_AGB_by_PFT <- ggplot(data = peak_dataset,
-                            aes(x = HAG_plotmean_of_cellmax_m,
-                                y = AGB_spatially_normalised_g_m2,
-                                colour = plant_functional_type,
-                                shape = plant_functional_type)) +
-    geom_point(alpha = 0.7, na.rm = TRUE) +
+HAG_Vs_AGB_by_PFT <- ggplot() +
+    geom_point(data = peak_dataset,
+               aes(x = HAG_plotmean_of_cellmax_m,
+                   y = AGB_spatially_normalised_g_m2,
+                   colour = plant_functional_type, 
+                   shape = plant_functional_type, 
+                   alpha = 0.7)) +
+    geom_line(data = preds_HAGs_fg, aes(x = x, y = predicted), size = 0.5) +
+    geom_ribbon(data = preds_HAGs_fg, aes(ymin = conf.low, ymax = conf.high, x = x), alpha = 0.4) +
     scale_colour_viridis_d() +
     scale_shape_manual(values = pft_shapes) +
     labs(x = expression("Mean canopy height (m)"),
@@ -379,6 +421,9 @@ peak_dataset %>%
         ggsave(paste0(loc_species, "/", unique(.$binomial_species),
                       " agregated.png", sep = ''), width = 10, height = 10,
                units = 'cm', plot = plot_pooled)                                # Save plots
+        plotname <- paste("plot_pooled", unique(.$binomial_species), sep="")    # Assign unique name to each plot
+        list_of_species_plots[[plotname]] <- plot_pooled                        # Add plots to list for composite figure
+    })
 
 # Isla's advice needed ####
 # Adapting from the previous for loop (below) I'm trying to add each of these
@@ -389,12 +434,10 @@ peak_dataset %>%
 # preventing plot_pooled from being added to the list_of_species_plots in the
 # intended way.
 
-        plotname <- paste("plot_pooled", unique(.$binomial_species), sep="")    # Assign unique name to each plot
-        list_of_species_plots[[plotname]] <- plot_pooled                        # Add plots to list for composite figure
-
-        # Fit and summarise species-level models
-        model.lms <- lm(.$AGB_spatially_normalised_g_m2 ~ .$HAG_plotmean_of_cellmax_m + 0)  # Define model: linear with constrained intercept. # Ordinary Least Squares Regression
-        model.rb <- lmrob(.$AGB_spatially_normalised_g_m2 ~ .$HAG_plotmean_of_cellmax_m + 0, method = 'MM')  # Define model: Robust Regression - Robustbase package (preferentially using MM-estimation)
+models <- peak_dataset %>%
+            filter(AGB_spatially_normalised_g_m2 > 0 & HAG_plotmean_of_cellmax_m > 0) %>%   # Filter incomplete observations.
+            group_by(binomial_species) %>%
+            summary(lmrob(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m + 0, method = 'MM')) # Define model: Robust Regression - Robustbase package (preferentially using MM-estimation)
 
 
 # Isla's advice needed ####
@@ -403,6 +446,8 @@ peak_dataset %>%
 # pipe.
 # Do you think it's worth trying to use the Boom package or similar to summarise these model outputs?
 # I tried using tidy(model.rb, conf.int=TRUE)  # It is strange that this doesn't work, the tidy function of Broom should support lmrob objects (https://www.rdocumentation.org/packages/broom/versions/0.5.2/topics/tidy.lmRob)
+        
+        model.lms
 
         model_info <- list()
         model_info <- c(plant_functional_type = as.character(unique(.$plant_functional_type)),
