@@ -12,19 +12,7 @@ home <- "C:/workspace/Geospatial_Pipeline/Geospatial_Pipeline_Python/"
 library(devtools)
 
 # Download
-# if(!require(tidyverse)) {install.packages("tidyverse"); require(tidyverse)}
-# if(!require(viridis)) {install.packages("viridis"); require(viridis)}
-# if(!require(grid)) {install.packages("grid"); require(grid)}
-# if(!require(gridExtra)) {install.packages("gridExtra"); require(gridExtra)}
-# if(!require(ggpubr)) {install.packages("ggpubr"); require(ggpubr)}
-# if(!require(nortest)) {install.packages("nortest"); require(nortest)}
-# if(!require(MASS)) {install.packages("MASS"); require(MASS)}
-# if(!require(jtools)) {install.packages("jtools"); require(jtools)}
-# if(!require(robustbase)) {install.packages("robustbase"); require(robustbase)}
-# if(!require(lmerTest)) {install.packages("lmerTest"); require(lmerTest)}
-# if(!require(ggeffects)) {install.packages("ggeffects"); require(ggeffects)}
-# if(!require(sjPlot)) {install.packages("sjPlot"); require(sjPlot)}
-install.packages("broom")
+# install.packages("broom")
 
 # Install packages
 library(tidyverse)                                                              # For making life better.
@@ -35,34 +23,36 @@ library(gridExtra)                                                              
 library(ggpubr)                                                                 # for arranging multi-panel plots.
 library(nortest)
 # library(MASS)                                                                 # Used for robust regression with rlm().
-# library(jtools)                                                               # Used for pretty model summaries (but not curerently used).
 library(robustbase)                                                             # Used for robust regression with rlm().
 library(robust)
 library(plotbiomes)                                                             # Adding Whittaker biome to climate space diagram.
 library(lme4)                                                                   # For linear mixed effects models.
-# library(lmerTest)                                                               # For extracting p values from linear mixed effects models (but can sometimes conflict with other packages, so use carfeully and be aware of errors!).
+# library(lmerTest)                                                             # For extracting p values from linear mixed effects models (but can sometimes conflict with other packages, so use carfeully and be aware of errors!).
 library(ggeffects)                                                              # For plotting mixed effects models.
 library(sjPlot)                                                                 # For plotting mixed effects models.
 library(xlsx)                                                                   # For creating Excel files of summary tables.
 library(broom)                                                                  # For summarising model outputs.
+# library(jtools)                                                               # Used for pretty model summaries (but not curerently used).
 
 
 #### Load data ----
-
-# Isla: I have filtered the sites with no data at the top to make the code more 
-# efficient, but this may not be what you want to do everywhere
 dataset <- read_excel(paste0(home, "outputs/processed_master_database.xlsx"),   # Read in summary data.
                       na = "NA")
-dataset <- read_csv("processed_master_database.csv", na = "NA")
-dataset2 <- dataset %>%
-    filter(AGB_spatially_normalised_g_m2 > 0 & HAG_plotmean_of_cellmax_m > 0)
-peak_dataset2 <- dataset2[dataset2$PeakBiomass == TRUE, ]                          # Observations from peak biomass.
-sev_dataset22 <- dataset2[dataset2$SevilletaIAV == TRUE, ]                          # Observations from Sevilleta interannual variation.
+dataset_filt <- peak_dataset %>%
+    filter(AGB_spatially_normalised_g_m2 > 0 & HAG_plotmean_of_cellmax_m > 0)   # Filter for observations with HAG and AGB values.
+
+peak_dataset <- dataset[dataset$PeakBiomass == TRUE, ]                          # Subset observations from peak biomass.
+peak_dataset_filt <- peak_dataset %>%
+    filter(AGB_spatially_normalised_g_m2 > 0 & HAG_plotmean_of_cellmax_m > 0)   # Filter for observations with HAG and AGB values.
+
+sev_dataset <- dataset[dataset$SevilletaIAV == TRUE, ]                          # Subset observations from Sevilleta interannual variation.
+sev_dataset_filt <- sev_dataset %>%
+    filter(AGB_spatially_normalised_g_m2 > 0 & HAG_plotmean_of_cellmax_m > 0)   # Filter for observations with HAG and AGB values.
 
 
 #### Create/verify output directories ----
-loc_dataset2 <- paste0(home, "outputs/0 - dataset2-level")
-dir.create(loc_dataset2, showWarnings = FALSE)
+loc_dataset <- paste0(home, "outputs/0 - Dataset-level")
+dir.create(loc_dataset, showWarnings = FALSE)
 
 loc_project <- paste0(home, "outputs/1 - Project-level")
 dir.create(loc_project, showWarnings = FALSE)
@@ -93,26 +83,29 @@ dir.create(loc_sevilleta, showWarnings = FALSE)
                   legend.position = c(0.9, 0.9))
     }
 
-
-# parameters for scale_shape_manual
+# Set parameters for scale_shape_manual
 pft_shapes <- c(15, 16, 17, 18, 15, 16, 17, 18)
 
 #### Compute scaling parameters from minimum and maximum values ####
-mat_max <- signif((1.1*max(peak_dataset2$MAT, na.rm = TRUE)),2)
-mat_min <- signif((1.1*min(peak_dataset2$MAT, na.rm = TRUE)),2)
-map_max <- signif((1.1*max(peak_dataset2$MAP, na.rm = TRUE)),2)
-max_agb <- 1.35*max(peak_dataset2$AGB_spatially_normalised_g_m2, na.rm = TRUE)
-max_mean_hag <- 1.1*max(peak_dataset2$HAG_plotmean_of_cellmax_m, na.rm = TRUE)
-min_mean_hag <- 0  # min(peak_dataset2$HAG_plotmean_of_cellmax_m, na.rm = TRUE)
-min_median_hag <- max(peak_dataset2$HAG_plotmedian_of_cellmax_m, na.rm = TRUE)
-max_median_hag <- min(peak_dataset2$HAG_plotmedian_of_cellmax_m, na.rm = TRUE)
+mat_max <- signif((1.1*max(peak_dataset$MAT, na.rm = TRUE)),2)
+mat_min <- signif((1.1*min(peak_dataset$MAT, na.rm = TRUE)),2)
+map_max <- signif((1.1*max(peak_dataset$MAP, na.rm = TRUE)),2)
+min_median_hag <- 0  # min(peak_dataset$HAG_plotmedian_of_cellmax_m, na.rm = TRUE)
+max_median_hag <- max(peak_dataset$HAG_plotmedian_of_cellmax_m, na.rm = TRUE)
+min_mean_hag <- 0  # min(peak_dataset$HAG_plotmean_of_cellmax_m, na.rm = TRUE)
+max_agb <- 1.35*max(peak_dataset$AGB_spatially_normalised_g_m2, na.rm = TRUE)
+max_mean_hag <- 1.1*max(peak_dataset$HAG_plotmean_of_cellmax_m, na.rm = TRUE)
+# max_agb <- 1000
+# max_mean_hag <- 0.5
+
+
 
 #### 1. Plot of climate space on Whittaker biomes ####
 # Whittaker polygons after R.H. Whittaker. 1975. Communities and Ecosystems. 2d ed. Macmillan New York
-peak_dataset2$MAP_cm <- peak_dataset2$MAP/10                                      # Create new column with MAP in cm rather than mm.
+peak_dataset$MAP_cm <- peak_dataset$MAP/10                                      # Create new column with MAP in cm rather than mm.
 
 # Create modified colour palette (with forests in grey)
-# create table of biome data
+# Create table of biome data
 biomes_tbl <- data.frame(biome_id = 1:9,
                          biome = c("Tropical rain forest",
                                    "Temperate rain forest",
@@ -123,7 +116,7 @@ biomes_tbl <- data.frame(biome_id = 1:9,
                                    "Temperate grassland/desert",
                                    "Subtropical desert",
                                    "Tundra"))
-# create colour palette
+# Create colour palette
 biome_colors <- c("grey60",
                   "grey70",
                   "grey85",
@@ -133,23 +126,20 @@ biome_colors <- c("grey60",
                   "#FCD57A",
                   "#D16E3F",
                   "#C1E1DD")
-#add biome names to colour palette
+# Add biome names to colour palette
 names(biome_colors) <- biomes_tbl$biome
 
 # Create plot with custom colour palette
-Whittaker_plot <- ggplot(data = peak_dataset2,
-                   aes(x = MAT,
-                       y = MAP_cm)) +
-    theme_coding() +
-    # coord_cartesian(xlim = c(mat_min, mat_max), ylim = c(0, (map_max/10)), expand=FALSE) +
+Whittaker_plot <- ggplot(data = peak_dataset,
+                         aes(x = MAT,
+                             y = MAP_cm)) +
+                         theme_coding() +
     coord_cartesian(expand=FALSE) +
     geom_polygon(data = Whittaker_biomes,
                  aes(x    = temp_c,
                      y    = precp_cm,
                      fill = biome),
-                 # adjust polygon borders
-                 colour = "gray98",
-                 size   = 0.5) +
+                 colour = "gray98", size   = 0.5) +                             # adjust polygon borders
     scale_fill_manual(name   = "Whittaker biomes",
                       breaks = names(biome_colors),
                       labels = names(biome_colors),
@@ -161,11 +151,15 @@ Whittaker_plot <- ggplot(data = peak_dataset2,
          y = expression("Mean Annual Precipitation (cm yr"^"-1"*")"),
          title = expression("Sampled climate space"))
 
-
-outfile <- file.path(home, "outputs",paste("Sampled_climate_space.png",sep="")) # Specify filepath
+outfile <- file.path(home, "outputs",paste("Sampled climate space (peak biomass).png",sep="")) # Specify filepath
 png(filename=outfile, width = 10, height = 10, units = 'cm', res = 500)         # Save plot
 plot(Whittaker_plot)
 dev.off()
+
+
+
+
+
 
 
 
@@ -330,8 +324,15 @@ dataset2_simple <- peak_dataset2 %>%
 
 #### 3. Project-level analysis ####
 # Plot height above ground against aboveground biomass by ProjectCode.
-dataset2 %>%
+
+# TO DO ####
+# Ideally, I'd like to recalculate the scaling parameters for each subset of
+# data, so that plots can be scalled optimally. The summarize function below
+# works, but not when combined with do{(plot...
+dataset_filt %>%
     group_by(ProjectCode) %>%
+    # summarize(max_agb = 1.2*max(AGB_spatially_normalised_g_m2, na.rm = TRUE),
+    #           max_mean_hag <- 1.2*max(HAG_plotmean_of_cellmax_m, na.rm = TRUE)) %>%
     do({plot <- ggplot(., aes(x = HAG_plotmean_of_cellmax_m,
                               y = AGB_spatially_normalised_g_m2,
                               colour = binomial_species)) +
@@ -342,9 +343,9 @@ dataset2 %>%
              title = paste(.$ProjectCode)) +
         theme_coding() +
         theme(legend.position = c(0.35, 0.8)) +
-        coord_cartesian(ylim = c(0, max_agb),
-                        xlim = c(min_mean_hag, max_mean_hag),
-                        expand = FALSE) +
+        # coord_cartesian(ylim = c(0, max_agb),
+        #                 xlim = c(0, max_mean_hag),
+        #                 expand = FALSE) +
         geom_smooth(method="lmrob",
                     formula= y ~ x-1,
                     aes(group=binomial_species),
@@ -352,7 +353,7 @@ dataset2 %>%
     ggsave(paste0(loc_project, "/", unique(.$ProjectCode),
                   ".png", sep = ''), width = 10, height = 10,
            units = 'cm', plot = plot)
-    })
+    }    )
 
 
 #### 4. Species-level analysis ####
