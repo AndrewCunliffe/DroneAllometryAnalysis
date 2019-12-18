@@ -163,28 +163,28 @@ dev.off()
 
 
 
-#### 2. dataset2-level analysis ####
+#### 2. dataset-level analysis ####
 ### Plot of mean versus median canopy height ###
 
 # Model of HAGs with a fixed effect for functional group
-model_HAGs <- lmer(HAG_plotmedian_of_cellmax_m ~ HAG_plotmean_of_cellmax_m * plant_functional_type + (1|ProjectCode), data = peak_dataset2)
+model_HAGs <- lmer(HAG_plotmedian_of_cellmax_m ~ HAG_plotmean_of_cellmax_m * plant_functional_type + 0 + (HAG_plotmean_of_cellmax_m|ProjectCode), data = peak_dataset_filt)
 
 summary(model_HAGs)
 
 preds_HAGs <- ggpredict(model_HAGs, terms = c("HAG_plotmean_of_cellmax_m"))
 
-dataset2_simple <- dataset2 %>% 
+dataset_filt_simple <- dataset_filt %>% 
     dplyr::select(AGB_spatially_normalised_g_m2, HAG_plotmean_of_cellmax_m) %>%
     distinct()
 
 # Model of AGB with a fixed effect for functional group
-model_HAGs_fg <- lmer(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m * plant_functional_type + (1|ProjectCode), data = peak_dataset2)
+model_HAGs_fg <- lmer(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m * plant_functional_type + 0 + (HAG_plotmean_of_cellmax_m|ProjectCode), data = peak_dataset_filt)
 
 summary(model_HAGs_fg)
 
 preds_HAGs_fg <- ggpredict(model_HAGs_fg, terms = c("HAG_plotmean_of_cellmax_m", "plant_functional_type"))
 
-dataset2_simple <- peak_dataset2 %>% 
+dataset_filt_simple <- peak_dataset_filt %>% 
     dplyr::select(AGB_spatially_normalised_g_m2, HAG_plotmean_of_cellmax_m, plant_functional_type) %>%
     distinct()
 
@@ -192,7 +192,7 @@ dataset2_simple <- peak_dataset2 %>%
 # Isla: now includes the model predictions and errors and a fixed effect of functional group
 mean_median_HAGs <- ggplot() +
     geom_ribbon(data = preds_HAGs, aes(ymin = conf.low, ymax = conf.high, x = x), alpha = 0.4) +
-    geom_point(data = dataset2,
+    geom_point(data = dataset_filt,
                aes(x = HAG_plotmean_of_cellmax_m,
                    y = HAG_plotmedian_of_cellmax_m, colour = plant_functional_type), shape=20, size = 2, na.rm = TRUE) +
     geom_line(data = preds_HAGs, aes(x = x, y = predicted), size = 0.5) +
@@ -207,16 +207,16 @@ mean_median_HAGs <- ggplot() +
     theme(legend.position = c(0.81, 0.36),
           legend.text = element_text(size = 7.2, face = 'bold'))
 
-outfile <- file.path(loc_dataset2, "Mean Vs Median HAG.png")                     # Filename for output.
+outfile <- file.path(loc_dataset_filt, "Mean Vs Median HAG.png")                     # Filename for output.
 png(filename=outfile, width = 10, height = 10, units = 'cm', res = 400)         # Export plot.
 plot(mean_median_HAGs)
 dev.off()
 
 
 
-#### Scatterplot of all observations in peak dataset2, by PFT ###
+#### Scatterplot of all observations in peak dataset, by PFT ###
 # Manually specify the order of factor levels.
-peak_dataset2 <- dataset2 %>% 
+peak_dataset_filt <- dataset_filt %>% 
     filter(PeakBiomass == T, plant_functional_type == "Succulent" | 
                plant_functional_type == "Tree" |
                plant_functional_type == "Shrub" |
@@ -237,7 +237,7 @@ peak_dataset2 <- dataset2 %>%
 # functional group
 HAG_Vs_AGB_by_PFT <- ggplot() +
     geom_ribbon(data = preds_HAGs_fg, aes(x = x, ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2, show.legend = F) +
-    geom_point(data = peak_dataset2,
+    geom_point(data = peak_dataset_filt,
                aes(x = HAG_plotmean_of_cellmax_m,
                    y = AGB_spatially_normalised_g_m2,
                    colour = plant_functional_type, 
@@ -275,19 +275,19 @@ dev.off()
 
 
 # 1st model: biomass as a function of height, with ProjectCode as a fixed effect.
-model <- lmer(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m + (1|ProjectCode), data = peak_dataset2)
+model <- lmer(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m + (1|ProjectCode), data = peak_dataset_filt)
 summary(model)
 
 
 # 2nd model: include taxononic group.
-model <- lmer(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m * plant_functional_type + 0 + (1|ProjectCode), data = peak_dataset2)
+model <- lmer(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m * plant_functional_type + 0 + (1|ProjectCode), data = peak_dataset_filt)
 summary(model)
 
 
 # Wind test
 # Here we are interested in a post-hoc analysis to test whether wind speed is a
-# signifcant interaction term in the peak_dataset2.
-model <- lmer(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m * Wind_speed + (1|ProjectCode), data = peak_dataset2)
+# signifcant interaction term in the peak_dataset_filt.
+model <- lmer(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m * Wind_speed + (1|ProjectCode), data = peak_dataset_filt)
 summary(model)
 # This summary suggests that wind is a signifcant interaction term.
 
@@ -296,7 +296,7 @@ ggpredict(model, terms = c("HAG_plotmean_of_cellmax_m")) %>% plot()
 
 predictions <- ggpredict(model, terms = c("HAG_plotmean_of_cellmax_m"))
 
-dataset2_simple <- peak_dataset2 %>%
+dataset_filt_simple <- peak_dataset_filt %>%
     dplyr::select(AGB_spatially_normalised_g_m2, HAG_plotmean_of_cellmax_m) %>%
     distinct()
 
@@ -305,7 +305,7 @@ dataset2_simple <- peak_dataset2 %>%
         geom_line(data = predictions, aes(x = x, y = predicted),
                   size = 0.5) +
         geom_ribbon(data = predictions, aes(ymin = conf.low, ymax = conf.high, x = x), alpha = 0.4) +
-        geom_point(data = dataset2_simple, aes(x = HAG_plotmean_of_cellmax_m, y = AGB_spatially_normalised_g_m2),
+        geom_point(data = dataset_filt_simple, aes(x = HAG_plotmean_of_cellmax_m, y = AGB_spatially_normalised_g_m2),
                    alpha = 0.1, size = 2) +
         theme_classic() +
         labs(x = "\nHAG_plotmean_of_cellmax_m", y = "AGB_spatially_normalised_g_m2\n"))
@@ -343,9 +343,9 @@ dataset_filt %>%
              title = paste(.$ProjectCode)) +
         theme_coding() +
         theme(legend.position = c(0.35, 0.8)) +
-        # coord_cartesian(ylim = c(0, max_agb),
-        #                 xlim = c(0, max_mean_hag),
-        #                 expand = FALSE) +
+        coord_cartesian(ylim = c(0, max(.$AGB_spatially_normalised_g_m2)),
+                        xlim = c(0, max(.$HAG_plotmean_of_cellmax_m)),
+                        expand = FALSE) +
         geom_smooth(method="lmrob",
                     formula= y ~ x-1,
                     aes(group=binomial_species),
@@ -379,7 +379,7 @@ species_summary_table <- data.frame(plant_functional_type = character(),        
                                     )
 
 # Pipeline for analysis
-peak_dataset2 %>%
+peak_dataset_filt %>%
     group_by(binomial_species) %>%
 
     do({
@@ -430,6 +430,26 @@ peak_dataset2 %>%
         list_of_species_plots[[plotname]] <- plot_pooled                        # Add plots to list for composite figure
     })
 
+# Isla: Facet wrap plot for all species - is this what you want?
+
+plot_pooled <- ggplot(peak_dataset_filt, aes(x = HAG_plotmean_of_cellmax_m,
+                             y = AGB_spatially_normalised_g_m2)) +
+    geom_point(shape = 1, na.rm = TRUE) +
+    scale_colour_viridis_d() +
+    labs(x = expression("Mean canopy height (m)"),
+         y = expression("Dry biomass (g m"^"-2"*")")) +
+    theme_coding() +
+    theme(plot.title = element_text(face="italic")) +
+    theme(legend.position = c(0.35, 0.8)) +
+    #coord_cartesian(ylim = c(0, max(peak_dataset_filt$AGB_spatially_normalised_g_m2)),
+    #                xlim = c(min(peak_dataset_filt$HAG_plotmean_of_cellmax_m), max(peak_dataset_filt$HAG_plotmean_of_cellmax_m)),
+    #                expand = FALSE) +
+    geom_smooth(method="lmrob",
+                formula= y ~ x-1,
+                se=TRUE, size=0.5, colour = "black", na.rm = TRUE) + facet_wrap(~peak_dataset_filt$binomial_species, scales = "free") + 
+    theme(strip.text = element_text(face = "italic"), strip.background = element_blank())
+
+
 # Isla's advice needed ####
 # Adapting from the previous for loop (below) I'm trying to add each of these
 # 'plot_pooled' plots to a list, so that they can be plotted together
@@ -446,7 +466,7 @@ peak_dataset2 %>%
 # switched over to robust::lmRob(), which may not be what you want to do.  
 # But the following pipe does work now!
 
-models <- peak_dataset2 %>%
+models <- peak_dataset_filt %>%
             group_by(binomial_species) %>%
     do({
     broom::tidy(robust::lmRob(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m + 0, data = .))}) # Define model: Robust Regression - Robustbase package (preferentially using MM-estimation))
@@ -503,7 +523,7 @@ species_summary_table <- species_summary_table[order(tolower(species_summary_tab
 species_summary_table2 <- subset(species_summary_table, binomial_species !='Mixed Grasses')
 
 # Export model summary to excel file.
-model_summary_path <- paste(loc_dataset2,"/Species summaries.xlsx", sep = "")
+model_summary_path <- paste(loc_dataset_filt,"/Species summaries.xlsx", sep = "")
 write.xlsx(species_summary_table2, model_summary_path, row.names=FALSE)         # Export results table as Excel file.
 
 
@@ -514,7 +534,7 @@ write.xlsx(species_summary_table2, model_summary_path, row.names=FALSE)         
 ## Create multipanel figure of species plots ##
 # # Landscape layout
 #     number_of_col <- 6                                                          # Specify number of columns.
-#     outfile <- file.path(loc_dataset2,
+#     outfile <- file.path(loc_dataset_filt,
 #                          paste("TEST S1 HAG Vs AGB by taxa - wide.png",sep="")) # Specify output filename.
 #     png(filename=outfile, width = 30, height = 18, units = 'cm',
 #         res = 300, bg = 'white')                                                # NB. This PNG call is key to include a white background.
@@ -525,7 +545,7 @@ write.xlsx(species_summary_table2, model_summary_path, row.names=FALSE)         
 #
 # # Portrait layout
 #     number_of_col <- 4                                                          # Specify number of columns.
-#     outfile <- file.path(loc_dataset2,
+#     outfile <- file.path(loc_dataset_filt,
 #                          paste("TEST S1 HAG Vs AGB by species - tall.png",
 #                                             sep=""))                            # Specify output filename.
 #     png(filename=outfile, width = 18, height = 24, units = 'cm',
@@ -545,8 +565,8 @@ write.xlsx(species_summary_table2, model_summary_path, row.names=FALSE)         
 
 ############## old code from species for loop ----
 # # For loop, to iterate through each species in the processed dataframe, subset speceis that have been processed, create plots.
-# for (i in sort(unique(peak_dataset2$binomial_species))){
-#     taxa_df <- subset(peak_dataset2, binomial_species==i)
+# for (i in sort(unique(peak_dataset_filt$binomial_species))){
+#     taxa_df <- subset(peak_dataset_filt, binomial_species==i)
 #
 #     x <- taxa_df$HAG_plotmean_of_cellmax_m                                      # Define x for models.
 #     y <- taxa_df$AGB_spatially_normalised_g_m2                                  # Define y for models.
@@ -710,7 +730,7 @@ pft_summary_table <- data.frame(plant_functional_type=character(),
 
 
 
-peak_dataset2 %>%
+peak_dataset_filt %>%
     filter(AGB_spatially_normalised_g_m2 > 0 & HAG_plotmean_of_cellmax_m > 0) %>%  # Filter incomplete observations.
     group_by(plant_functional_type) %>%
     do({plot <- ggplot(., aes(x = HAG_plotmean_of_cellmax_m,
@@ -768,8 +788,8 @@ peak_dataset2 %>%
 
 
 # For loop, to iterate through each plant functional type, subset species that have been processed, create plots.
-for (i in sort(unique(peak_dataset2$plant_functional_type))){
-    pft_df <- subset(peak_dataset2, plant_functional_type==i)
+for (i in sort(unique(peak_dataset_filt$plant_functional_type))){
+    pft_df <- subset(peak_dataset_filt, plant_functional_type==i)
 
     # define key variables
     x <- pft_df$HAG_plotmean_of_cellmax_m
@@ -1040,13 +1060,13 @@ pft_model_slope <- ggplot(data = pft_model_summary,
 
 
 #### Sevilleta Analysis ----
-# working with: sev_dataset22
+# working with: sev_dataset_filt
                                                                                 # Sevilleta species sampled include:
                                                                                 #  c("Larrea tridentata", "Bouteloua eriopoda", "Gutierrezia sarothrae", "Yucca elata")
                                                                                 # and also several one off species (huniper, pinion, cane cholla cacti, prickely pear cacti)
 # Compute scaling parameters from minimum and maximum values
-max_mean_hag <- max(sev_dataset2$HAG_plotmean_of_cellmax_m, na.rm = TRUE)
-max_agb <- 1.35*max(sev_dataset2$AGB_spatially_normalised_g_m2, na.rm = TRUE)
+max_mean_hag <- max(sev_dataset_filt$HAG_plotmean_of_cellmax_m, na.rm = TRUE)
+max_agb <- 1.35*max(sev_dataset_filt$AGB_spatially_normalised_g_m2, na.rm = TRUE)
 
 # Mean HAG Vs. AGB grouped by species
 # (mean of maximum) canopy height as predictor of aboveground biomass by binomial taxa. Creates:
@@ -1069,9 +1089,9 @@ sev_summary_table <- data.frame(binomial_species = character(),
                                 stringsAsFactors=FALSE
                                 )
 
-# For loop, to iterate through each individual dataset2, subset speceis that have been processed, create plots.
-for (i in sort(unique(sev_dataset2$binomial_species))){
-    taxa_df <- subset(sev_dataset2, binomial_species==i)
+# For loop, to iterate through each individual dataset, subset speceis that have been processed, create plots.
+for (i in sort(unique(sev_dataset_filt$binomial_species))){
+    taxa_df <- subset(sev_dataset_filt, binomial_species==i)
 
     x <- taxa_df$HAG_plotmean_of_cellmax_m                                      # Define x for models.
     y <- taxa_df$AGB_spatially_normalised_g_m2                                  # Define y for models.
@@ -1097,7 +1117,7 @@ for (i in sort(unique(sev_dataset2$binomial_species))){
             coord_cartesian(ylim = c(0, max_agb), xlim = c(0, max_mean_hag), expand=FALSE) +
             geom_smooth(method="lmrob", formula= y ~ x-1, aes(group=ProjectCode, colour=ProjectCode), se=TRUE, size=0.5, na.rm = TRUE)
 
-            # Save dataset2-level plots
+            # Save dataset-level plots
             outfile <- file.path(loc_sevilleta, paste("/HAG Vs AGB ",i,".png",sep=""))
             png(filename=outfile, width = 10, height = 10, units = 'cm', res = 400)
             plot(meanHAG_vs_AGB_species)
