@@ -21,18 +21,17 @@ library(viridis)                                                                
 library(grid)                                                                   # required for plot annotation
 library(gridExtra)                                                              # for arranging multi-panel plots.
 library(ggpubr)                                                                 # for arranging multi-panel plots.
-library(nortest)
-# library(MASS)                                                                 # Used for robust regression with rlm().
 library(robustbase)                                                             # Used for robust regression with rlm().
-library(robust)
+library(robust)                                                                 # Used for robust regression with rlm().
 library(plotbiomes)                                                             # Adding Whittaker biome to climate space diagram.
 library(lme4)                                                                   # For linear mixed effects models.
 # library(lmerTest)                                                             # For extracting p values from linear mixed effects models (but can sometimes conflict with other packages, so use carfeully and be aware of errors!).
 library(ggeffects)                                                              # For plotting mixed effects models.
 library(sjPlot)                                                                 # For plotting mixed effects models.
-library(xlsx)                                                                   # For creating Excel files of summary tables.
+library(xlsx)                                                                   # For writing Excel files of summary tables.
 library(broom)                                                                  # For summarising model outputs.
 # library(jtools)                                                               # Used for pretty model summaries (but not curerently used).
+# library(nortest)
 
 
 #### Load data ----
@@ -156,43 +155,30 @@ png(filename=outfile, width = 10, height = 10, units = 'cm', res = 500)         
 plot(Whittaker_plot)
 dev.off()
 
+rm(biomes_tbl)                                                                  # Tidying up
 
+#### 2. Dataset-level analysis ####
 
-
-
-
-
-
-#### 2. dataset-level analysis ####
-### Plot of mean versus median canopy height ###
-
-# Model of HAGs with a fixed effect for functional group
-model_HAGs <- lmer(HAG_plotmedian_of_cellmax_m ~ HAG_plotmean_of_cellmax_m * plant_functional_type + 0 + (HAG_plotmean_of_cellmax_m|ProjectCode), data = peak_dataset_filt)
-
+### Analyse mean versus median canopy height ###
+# Fit model of HAGs with a fixed effect for functional group
+model_HAGs <- lmer(HAG_plotmedian_of_cellmax_m ~ HAG_plotmean_of_cellmax_m *
+                       plant_functional_type + (1|ProjectCode),
+                   data = peak_dataset_filt)
 summary(model_HAGs)
+
+# It is possible to constrain the overall intercept to zero.  The code for that model would I think be:
+# model_HAGs <- lmer(HAG_plotmedian_of_cellmax_m ~ HAG_plotmean_of_cellmax_m *
+#                        plant_functional_type + 0 + (HAG_plotmean_of_cellmax_m|ProjectCode), data = peak_dataset_filt)
+#
+# summary(model_HAGs)
 
 preds_HAGs <- ggpredict(model_HAGs, terms = c("HAG_plotmean_of_cellmax_m"))
 
-dataset_filt_simple <- dataset_filt %>% 
-    dplyr::select(AGB_spatially_normalised_g_m2, HAG_plotmean_of_cellmax_m) %>%
-    distinct()
 
-# Model of AGB with a fixed effect for functional group
-model_HAGs_fg <- lmer(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m * plant_functional_type + 0 + (HAG_plotmean_of_cellmax_m|ProjectCode), data = peak_dataset_filt)
-
-summary(model_HAGs_fg)
-
-preds_HAGs_fg <- ggpredict(model_HAGs_fg, terms = c("HAG_plotmean_of_cellmax_m", "plant_functional_type"))
-
-dataset_filt_simple <- peak_dataset_filt %>% 
-    dplyr::select(AGB_spatially_normalised_g_m2, HAG_plotmean_of_cellmax_m, plant_functional_type) %>%
-    distinct()
-
-# Create plot
-# Isla: now includes the model predictions and errors and a fixed effect of functional group
+# Create plot of mean versus median canopy height, including model predictions and errors and a fixed effect of functional type.
 mean_median_HAGs <- ggplot() +
     geom_ribbon(data = preds_HAGs, aes(ymin = conf.low, ymax = conf.high, x = x), alpha = 0.4) +
-    geom_point(data = dataset_filt,
+    geom_point(data = peak_dataset_filt,
                aes(x = HAG_plotmean_of_cellmax_m,
                    y = HAG_plotmedian_of_cellmax_m, colour = plant_functional_type), shape=20, size = 2, na.rm = TRUE) +
     geom_line(data = preds_HAGs, aes(x = x, y = predicted), size = 0.5) +
@@ -203,21 +189,42 @@ mean_median_HAGs <- ggplot() +
                     xlim = c(0, (max_mean_hag*1.3)),
                     expand=FALSE) +
     labs(x = expression("Mean canopy height (m)"),
-         y = expression("Median canopy height (m)")) +
-    theme(legend.position = c(0.81, 0.36),
-          legend.text = element_text(size = 7.2, face = 'bold'))
+         y = expression("Median canopy height (m)"),
+         title = "Mean versus median canopy height",
+         colour = "Plant Functional Type") +
+    theme(legend.position = c(0.82, 0.25),
+          legend.text = element_text(size = 7, face = "plain"),
+          legend.title = element_text(size = 7.2, face = 'bold'))
 
-outfile <- file.path(loc_dataset_filt, "Mean Vs Median HAG.png")                     # Filename for output.
+outfile <- file.path(loc_dataset, "Mean Vs Median HAG.png")                     # Filename for output.
 png(filename=outfile, width = 10, height = 10, units = 'cm', res = 400)         # Export plot.
 plot(mean_median_HAGs)
 dev.off()
 
 
 
-#### Scatterplot of all observations in peak dataset, by PFT ###
+#### Analyse HAG versus AGB for all observations in peak dataset
+# Model of AGB with a fixed effect for functional group
+
+#### TO DO (Isla - Intercept of mixed effects models): ####
+# Is it possible and sensible to specify an intercept of zero in the above fixed-effect model?
+# I think a fixed intercept would be justified on physical grounds, but I haven't been able to
+# find any guidance about implementing this online so maybe it's simply not appropriate/possible
+# with fixed effects models?
+
+model_HAGs_fg <- lmer(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m *
+                          plant_functional_type + (1|ProjectCode),
+                      data = peak_dataset_filt)
+
+summary(model_HAGs_fg)
+
+preds_HAGs_fg <- ggpredict(model_HAGs_fg, terms = c("HAG_plotmean_of_cellmax_m", "plant_functional_type"))
+
+
+### Scatterplot of all observations in peak dataset, by PFT ###
 # Manually specify the order of factor levels.
-peak_dataset_filt <- dataset_filt %>% 
-    filter(PeakBiomass == T, plant_functional_type == "Succulent" | 
+peak_dataset_filt <- peak_dataset_filt %>%
+    filter(plant_functional_type == "Succulent" |
                plant_functional_type == "Tree" |
                plant_functional_type == "Shrub" |
                plant_functional_type == "Forb" |
@@ -225,25 +232,32 @@ peak_dataset_filt <- dataset_filt %>%
                plant_functional_type == "Fern" |
                plant_functional_type == "Bryophyte") %>%
     mutate(plant_functional_type == factor(plant_functional_type, levels = c("Succulent",
-                                             "Tree",
-                                             "Shrub",
-                                             "Forb",
-                                             "Graminoid",
-                                             "Fern",
-                                             "Bryophyte")))
+                                                                             "Tree",
+                                                                             "Shrub",
+                                                                             "Forb",
+                                                                             "Graminoid",
+                                                                             "Fern",
+                                                                             "Bryophyte")))
 
-# Create scatter plot
-# Isla: now includes the model predictions and errors with a fixed effect of 
-# functional group
+# Create scatter plot of all observations of HAG versus AGB.
+# Includes model predictions and errors with a fixed effect of functional type.
+# TO DO (Andy): ####
+# I'd like to configure the legend to display the line, symbol and shading for each PFT.
+# currently, there is an issue with the different names used for grouping variables in the
+#  different datasets (daa=preds_HAGs_fg=group, whereas data=peak_dataset_filt=plant_functional_type...)
+# I'm not sure of the best way to reconcile this... maybe adding to the ggplot() function?
 HAG_Vs_AGB_by_PFT <- ggplot() +
-    geom_ribbon(data = preds_HAGs_fg, aes(x = x, ymin = conf.low, ymax = conf.high, fill = group), alpha = 0.2, show.legend = F) +
+    geom_ribbon(data = preds_HAGs_fg,
+                aes(x = x, ymin = conf.low, ymax = conf.high, fill = group),
+                alpha = 0.2, show.legend = T) +
     geom_point(data = peak_dataset_filt,
                aes(x = HAG_plotmean_of_cellmax_m,
                    y = AGB_spatially_normalised_g_m2,
-                   colour = plant_functional_type, 
-                   shape = plant_functional_type, 
-                   alpha = 0.7), show.legend = F) +
-    geom_line(data = preds_HAGs_fg, aes(x = x, y = predicted, colour = group), size = 0.5) +
+                   colour = plant_functional_type,
+                   shape = plant_functional_type,
+                   alpha = 0.7), show.legend = T) +
+    geom_line(data = preds_HAGs_fg, aes(x = x, y = predicted, colour = group),
+              size = 0.5, show.legend = T) +
     scale_colour_viridis_d() +
     scale_fill_viridis_d() +
     scale_shape_manual(values = pft_shapes) +
@@ -255,24 +269,52 @@ HAG_Vs_AGB_by_PFT <- ggplot() +
     theme_coding() +
     theme(plot.title = element_text(face="italic"),
           legend.title = element_text(size=8),
-          legend.position = c(0.78, 0.7)) +
-    coord_cartesian(ylim = c(0, max_agb), xlim = c(0, 2), expand=FALSE)
+          legend.position = c(0.15, 0.8)) +
+    coord_cartesian(ylim = c(0, max_agb), xlim = c(0, max_mean_hag), expand=FALSE)
 
-#+ geom_smooth(method="lmrob", formula= y ~ x-1,
-#                aes(group=plant_functional_type,
-#                    colour=plant_functional_type),
-#                se=FALSE, size=0.5, na.rm = TRUE)
+HAG_Vs_AGB_by_PFT
 
 # Export scatter plot
-outfile <- file.path(home, "outputs/HAG Vs AGB by PFT.png",sep="")
+outfile <- file.path(loc_dataset, "HAG Vs AGB by PFT - new.png",sep="")
 png(filename=outfile, width = 14, height = 14, units = 'cm', res = 600)
 plot(HAG_Vs_AGB_by_PFT)
 dev.off()
 
 
-# Isla's advice needed ####
-# Mixed effects models - IN DEVELOPMENT ####
+# Original scatter plot - wih constrained intercept
+HAG_Vs_AGB_by_PFT1 <- ggplot(data = peak_dataset_filt,
+                            aes(x = HAG_plotmean_of_cellmax_m,
+                                y = AGB_spatially_normalised_g_m2,
+                                colour = plant_functional_type,
+                                shape = plant_functional_type)) +
+    geom_point(alpha = 0.7, na.rm = TRUE) +
+    scale_colour_viridis_d() +
+    scale_shape_manual(values = pft_shapes) +
+    labs(x = expression("Mean canopy height (m)"),
+         y = expression("Dry biomass (g m"^"-2"*")"),
+         title = expression("Canopy height predicts aboveground biomass"),
+         colour = "Plant functional type",
+         shape = "Plant functional type") +
+    theme_coding() +
+    theme(plot.title = element_text(face="italic"),
+          legend.title = element_text(size=8),
+          legend.position = c(0.85, 0.79)) +
+    coord_cartesian(ylim = c(0, max_agb), xlim = c(0, max_mean_hag), expand=FALSE) +
+    geom_smooth(method="lmrob", formula= y ~ x-1,
+                aes(group=plant_functional_type,
+                    colour=plant_functional_type),
+                se=FALSE, size=0.5, na.rm = TRUE)
 
+HAG_Vs_AGB_by_PFT1
+# Export scatter plot
+outfile <- file.path(loc_dataset, "HAG Vs AGB by PFT - original.png",sep="")
+png(filename=outfile, width = 14, height = 14, units = 'cm', res = 600)
+plot(HAG_Vs_AGB_by_PFT1)
+dev.off()
+
+
+
+# Mixed effects models - IN DEVELOPMENT
 
 # 1st model: biomass as a function of height, with ProjectCode as a fixed effect.
 model <- lmer(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m + (1|ProjectCode), data = peak_dataset_filt)
@@ -284,28 +326,26 @@ model <- lmer(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m * plant_
 summary(model)
 
 
-# Wind test
+
+### Wind test ###
 # Here we are interested in a post-hoc analysis to test whether wind speed is a
-# signifcant interaction term in the peak_dataset_filt.
-model <- lmer(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m * Wind_speed + (1|ProjectCode), data = peak_dataset_filt)
-summary(model)
+# signifcant interaction term in the peak_dataset.
+model_wind <- lmer(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m * Wind_speed + (1|ProjectCode), data = peak_dataset)
+summary(model_wind)
 # This summary suggests that wind is a signifcant interaction term.
 
 # Plot model predictions
-ggpredict(model, terms = c("HAG_plotmean_of_cellmax_m")) %>% plot()
+ggpredict(model_wind, terms = c("HAG_plotmean_of_cellmax_m")) %>% plot()
 
-predictions <- ggpredict(model, terms = c("HAG_plotmean_of_cellmax_m"))
+predictions <- ggpredict(model_wind, terms = c("HAG_plotmean_of_cellmax_m"))
 
-dataset_filt_simple <- peak_dataset_filt %>%
-    dplyr::select(AGB_spatially_normalised_g_m2, HAG_plotmean_of_cellmax_m) %>%
-    distinct()
 
 # Plot model predictions on data
 (plot.model <- ggplot() +
         geom_line(data = predictions, aes(x = x, y = predicted),
                   size = 0.5) +
         geom_ribbon(data = predictions, aes(ymin = conf.low, ymax = conf.high, x = x), alpha = 0.4) +
-        geom_point(data = dataset_filt_simple, aes(x = HAG_plotmean_of_cellmax_m, y = AGB_spatially_normalised_g_m2),
+        geom_point(data = peak_dataset_filt, aes(x = HAG_plotmean_of_cellmax_m, y = AGB_spatially_normalised_g_m2),
                    alpha = 0.1, size = 2) +
         theme_classic() +
         labs(x = "\nHAG_plotmean_of_cellmax_m", y = "AGB_spatially_normalised_g_m2\n"))
@@ -314,74 +354,46 @@ dataset_filt_simple <- peak_dataset_filt %>%
 # Visualise random effects
 (re.effects <- plot_model(model, type = "re", show.values = TRUE))
 
-# Add more stuff here...
-
-
-
-
 
 
 
 #### 3. Project-level analysis ####
 # Plot height above ground against aboveground biomass by ProjectCode.
-
-# TO DO ####
-# Ideally, I'd like to recalculate the scaling parameters for each subset of
-# data, so that plots can be scalled optimally. The summarize function below
-# works, but not when combined with do{(plot...
 dataset_filt %>%
     group_by(ProjectCode) %>%
-    # summarize(max_agb = 1.2*max(AGB_spatially_normalised_g_m2, na.rm = TRUE),
-    #           max_mean_hag <- 1.2*max(HAG_plotmean_of_cellmax_m, na.rm = TRUE)) %>%
     do({plot <- ggplot(., aes(x = HAG_plotmean_of_cellmax_m,
                               y = AGB_spatially_normalised_g_m2,
-                              colour = binomial_species)) +
+                              colour = binomial_species,
+                              fill = binomial_species)) +
         geom_point(shape = 1, na.rm = TRUE) +
         scale_colour_viridis_d() +
+        scale_fill_viridis_d() +
         labs(x = expression("Mean canopy height (m)"),
              y = expression("Dry biomass (g m"^"-2"*")"),
              title = paste(.$ProjectCode)) +
         theme_coding() +
         theme(legend.position = c(0.35, 0.8)) +
-        coord_cartesian(ylim = c(0, max(.$AGB_spatially_normalised_g_m2)),
-                        xlim = c(0, max(.$HAG_plotmean_of_cellmax_m)),
+        coord_cartesian(ylim = c(0, 1.2 * max(.$AGB_spatially_normalised_g_m2)),
+                        xlim = c(0, 1.2 * max(.$HAG_plotmean_of_cellmax_m)),
                         expand = FALSE) +
-        geom_smooth(method="lmrob",
-                    formula= y ~ x-1,
+        geom_smooth(method="lmrob", formula= y ~ x-1,
                     aes(group=binomial_species),
-                    se=TRUE, size=0.5, na.rm = TRUE)
+                    se=FALSE, size=0.5, na.rm = TRUE, alpha=0.2)
     ggsave(paste0(loc_project, "/", unique(.$ProjectCode),
                   ".png", sep = ''), width = 10, height = 10,
            units = 'cm', plot = plot)
-    }    )
+    })
+
 
 
 #### 4. Species-level analysis ####
 # Analyse mean (of max) HAG versus AGB, by species
-list_of_species_plots <- list()                                                 # Initialize empty list for multipanel plot.
 
-species_summary_table <- data.frame(plant_functional_type = character(),        # Create dataframe to collate model summary statistics.
-                                    order = character(),
-                                    family = character(),
-                                    binomial_species = character(),
-                                    nls_slope = double(),
-                                    nls_slope_error = double(),
-                                    nls_r2 = double(),
-                                    nls_p = double(),
-                                    rob_slope = double(),
-                                    rob_slope_error = double(),
-                                    rob_r2 = double(),
-                                    rob_p = double(),
-                                    Observations = integer(),
-                                    n_of_surveys = integer(),
-                                    Koppen_cc = character(),
-                                    stringsAsFactors=FALSE
-                                    )
-
-# Pipeline for analysis
+# Create individual species-level plots of HAG versus ABG.                      # NB. 'add_count(binomial_species)' and 'filter(n>3)' are used to exclude observations with fewer than X observations from the rest of the pipe.
 peak_dataset_filt %>%
     group_by(binomial_species) %>%
-
+    add_count(binomial_species) %>%
+    filter(n>3) %>%
     do({
         # create plots for each species, grouped by ProjectCode.
         plot <- ggplot(., aes(x = HAG_plotmean_of_cellmax_m,
@@ -400,229 +412,357 @@ peak_dataset_filt %>%
                         expand = FALSE) +
         geom_smooth(method="lmrob",
                     formula= y ~ x-1,
-                    se=TRUE, size=0.5, colour = "black", na.rm = TRUE)
+                    aes(group=ProjectCode,
+                        colour=ProjectCode),
+                    se=TRUE, size=0.5, na.rm = TRUE)
         ggsave(paste0(loc_species, "/", unique(.$binomial_species),
                   ".png", sep = ''), width = 10, height = 10,
            units = 'cm', plot = plot)                                           # Save plots
 
-        # create plots for each species, pooling observations.
-        plot_pooled <- ggplot(., aes(x = HAG_plotmean_of_cellmax_m,
-                                          y = AGB_spatially_normalised_g_m2)) +
-           geom_point(shape = 1, na.rm = TRUE) +
-           scale_colour_viridis_d() +
-           labs(x = expression("Mean canopy height (m)"),
-                y = expression("Dry biomass (g m"^"-2"*")"),
-                title = paste(.$binomial_species)) +
-           theme_coding() +
-           theme(plot.title = element_text(face="italic")) +
-           theme(legend.position = c(0.35, 0.8)) +
-           coord_cartesian(ylim = c(0, max_agb),
-                           xlim = c(min_mean_hag, max_mean_hag),
-                           expand = FALSE) +
-           geom_smooth(method="lmrob",
-                       formula= y ~ x-1,
-                       se=TRUE, size=0.5, colour = "black", na.rm = TRUE)
-
-        ggsave(paste0(loc_species, "/", unique(.$binomial_species),
-                      " agregated.png", sep = ''), width = 10, height = 10,
-               units = 'cm', plot = plot_pooled)                                # Save plots
-        plotname <- paste("plot_pooled", unique(.$binomial_species), sep="")    # Assign unique name to each plot
-        list_of_species_plots[[plotname]] <- plot_pooled                        # Add plots to list for composite figure
+        # create plots for each species, pooling observations. No longer used.
+        # plot_pooled <- ggplot(., aes(x = HAG_plotmean_of_cellmax_m,
+        #                                   y = AGB_spatially_normalised_g_m2)) +
+        #    geom_point(shape = 1, na.rm = TRUE) +
+        #    scale_colour_viridis_d() +
+        #    labs(x = expression("Mean canopy height (m)"),
+        #         y = expression("Dry biomass (g m"^"-2"*")"),
+        #         title = paste(.$binomial_species)) +
+        #    theme_coding() +
+        #    theme(plot.title = element_text(face="italic")) +
+        #    theme(legend.position = c(0.35, 0.8)) +
+        #    coord_cartesian(ylim = c(0, max_agb),
+        #                    xlim = c(min_mean_hag, max_mean_hag),
+        #                    expand = FALSE) +
+        #    geom_smooth(method="lmrob",
+        #                formula= y ~ x-1,
+        #                se=TRUE, size=0.5, colour = "black", na.rm = TRUE)
+        #
+        # ggsave(paste0(loc_species, "/", unique(.$binomial_species),
+        #               " agregated.png", sep = ''), width = 10, height = 10,
+        #        units = 'cm', plot = plot_pooled)                                # Save plots
     })
 
-# Isla: Facet wrap plot for all species - is this what you want?
 
-plot_pooled <- ggplot(peak_dataset_filt, aes(x = HAG_plotmean_of_cellmax_m,
-                             y = AGB_spatially_normalised_g_m2)) +
+# Create multi-panel (facet wrap) plot of species-level HAG versus ABG.                       # NB. 'add_count(binomial_species)' and 'filter(n>3)' are used to exclude observations with fewer than X observations from the rest of the pipe.
+# Fixed axis-scales
+plot_species_composite <- ggplot(peak_dataset_filt,
+                                 aes(x = HAG_plotmean_of_cellmax_m,
+                                     y = AGB_spatially_normalised_g_m2)) +
     geom_point(shape = 1, na.rm = TRUE) +
     scale_colour_viridis_d() +
     labs(x = expression("Mean canopy height (m)"),
-         y = expression("Dry biomass (g m"^"-2"*")")) +
+         y = expression("Dry biomass (g m"^"-2"*")"),
+         title = expression("Canopy height predicts biomass strongly at the species level")) +
     theme_coding() +
     theme(plot.title = element_text(face="italic")) +
     theme(legend.position = c(0.35, 0.8)) +
-    #coord_cartesian(ylim = c(0, max(peak_dataset_filt$AGB_spatially_normalised_g_m2)),
-    #                xlim = c(min(peak_dataset_filt$HAG_plotmean_of_cellmax_m), max(peak_dataset_filt$HAG_plotmean_of_cellmax_m)),
-    #                expand = FALSE) +
     geom_smooth(method="lmrob",
                 formula= y ~ x-1,
-                se=TRUE, size=0.5, colour = "black", na.rm = TRUE) + facet_wrap(~peak_dataset_filt$binomial_species, scales = "free") + 
-    theme(strip.text = element_text(face = "italic"), strip.background = element_blank())
+                se=FALSE, size=0.5, colour = "black", na.rm = TRUE) +
+    facet_wrap(~peak_dataset_filt$binomial_species, scales = "fixed") +
+    # facet_wrap(~peak_dataset_filt$binomial_species, scales = "free") +
+    theme(strip.text = element_text(face = "bold.italic", size = 7),
+          strip.background = element_blank())
+
+# Export composite species plot
+ggsave(paste0(loc_species, "/", "0 - Species level HAG versus AGB - Fixed scales (wide).png", sep = ''),
+       width = 26, height = 16, units = 'cm', plot = plot_species_composite)
+ggsave(paste0(loc_species, "/", "0 - Species level HAG versus AGB - Fixed scales (tall).png", sep = ''),
+       width = 16, height = 26, units = 'cm', plot = plot_species_composite)
 
 
-# Isla's advice needed ####
-# Adapting from the previous for loop (below) I'm trying to add each of these
-# 'plot_pooled' plots to a list, so that they can be plotted together
-# (with grid.arrange), but I can't get the syntax to work and haven't been able
-# to find a solution information online.
-# I think it's possible that there is an issue with assign inside the pipe,
-# preventing plot_pooled from being added to the list_of_species_plots in the
-# intended way.
+# Variable axis-scales
+plot_species_composite <- ggplot(peak_dataset_filt,
+                                 aes(x = HAG_plotmean_of_cellmax_m,
+                                     y = AGB_spatially_normalised_g_m2)) +
+    geom_point(shape = 1, na.rm = TRUE) +
+    scale_colour_viridis_d() +
+    labs(x = expression("Mean canopy height (m)"),
+         y = expression("Dry biomass (g m"^"-2"*")"),
+         title = expression("Canopy height predicts biomass strongly at the species level")) +
+    theme_coding() +
+    theme(plot.title = element_text(face="italic")) +
+    theme(legend.position = c(0.35, 0.8)) +
+    geom_smooth(method="lmrob",
+                formula= y ~ x-1,
+                se=FALSE, size=0.5, colour = "black", na.rm = TRUE) +
+    # facet_wrap(~peak_dataset_filt$binomial_species, scales = "fixed") +
+    facet_wrap(~peak_dataset_filt$binomial_species, scales = "free") +
+    theme(strip.text = element_text(face = "bold.italic", size = 7),
+          strip.background = element_blank())
 
-# Isla:
-# Okay so one issue that I found is that it is the robust::lmRob() function that 
-# works with broom::tidy() and not the robustbase::lmRob() which does not work 
-# with broom::tidy().  To make the pipe work with the broom::tidy() function I 
-# switched over to robust::lmRob(), which may not be what you want to do.  
-# But the following pipe does work now!
+# Export composite species plot
+ggsave(paste0(loc_species, "/", "0 - Species level HAG versus AGB - Free scales (wide).png", sep = ''),
+       width = 26, height = 16, units = 'cm', plot = plot_species_composite)
+ggsave(paste0(loc_species, "/", "0 - Species level HAG versus AGB - Free scales (tall).png", sep = ''),
+       width = 16, height = 26, units = 'cm', plot = plot_species_composite)
 
-models <- peak_dataset_filt %>%
-            group_by(binomial_species) %>%
+
+
+
+# Fit and summarise species-level linear models
+# The aim here is to fit the *best* model for each individual species, and to
+# summarise the model for each species in an exportable table.
+# Parameters should include:
+                    # PFT
+                    # Order
+                    # Family
+                    # Species
+                    # N of observations
+                    # N of surveys
+                    # model slope from lm
+                    # slope error from lm
+                    # r2 from lm
+                    # p value from lm
+                    # model slope from rlm
+                    # slope error from rlm
+                    # r2 from rlm
+                    # p value from rlm
+
+# I haven't been able to combine extracting the parameters of fitted models
+# within the same pipe, so currently have this long-winded solution with multiple pipes...
+obs_threshold <- 3
+
+# Summarise key parameters for each species
+species_metrics.tbl <- peak_dataset_filt %>%
+    group_by(binomial_species) %>%
+    add_count(binomial_species) %>%                                             # Creates temporary count of the number of observations, allowing for subsequent filter.
+    filter(n>obs_threshold) %>%                                                             # Filter by minimum number of observations.
+    summarise(PFT=unique(plant_functional_type),
+              Order=unique(PlotOrder),
+              Family=unique(PlotFamily),
+              n=n(),
+              surveys=length(unique(ProjectCode))) %>%
+    # arrange(PFT, Order, Family, binomial_species) %>%                           # Arrange observations in alphabetical order. Disabled to facilitate integration with other tibbles.
+    rename(Species=binomial_species) %>%                                        # Rename columns
+    select(PFT, Order, Family, Species, everything())                           # Reorder columns
+
+
+# Fit linear models with OLS
+# model parameters
+species_models.tbl.lm1 <- peak_dataset_filt %>%
+    group_by(binomial_species) %>%
+    add_count(binomial_species) %>%                                             # Creates temporary count of the number of observations, allowing for subsequent filter.
+    filter(n>obs_threshold) %>%                                                             # Filter by minimum number of observations.
     do({
-    broom::tidy(robust::lmRob(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m + 0, data = .))}) # Define model: Robust Regression - Robustbase package (preferentially using MM-estimation))
-
-# Isla:
-# for some reason I had to put the tidy function inside a do function - should need to do that!
-
-# Isla's advice needed ####
-# This isn't currently working. model info is not beeing added to the summary
-# table - I think this might also be an issue with assignment from within the
-# pipe.
-# Do you think it's worth trying to use the Boom package or similar to summarise these model outputs?
-# I tried using tidy(model.rb, conf.int=TRUE)  # It is strange that this doesn't work, the tidy function of Broom should support lmrob objects (https://www.rdocumentation.org/packages/broom/versions/0.5.2/topics/tidy.lmRob)
-        
-        model.lms
-
-        model_info <- list()
-        model_info <- c(plant_functional_type = as.character(unique(.$plant_functional_type)),
-                        order = as.character(unique(.$PlotOrder)),
-                        family = as.character(unique(.$PlotFamily)),
-                        binomial_species = as.character(unique(.$binomial_species)),
-                        nls_slope = round(summary(model.lms)$coefficients[1], digits = 2),
-                        nls_slope_error = round(summary(model.lms)$coefficients[2], digits = 2),
-                        nls_r2 = round(summary(model.lms)$r.squared, digits = 3),
-                        nls_p = round(summary(model.lms)$coefficients[1,4], digits = 5),
-                        rob_slope = round(summary(model.rb)$coefficients[1], digits = 2),
-                        rob_slope_error = round(summary(model.rb)$coefficients[2], digits = 2),
-                        rob_r2 = round(summary(model.rb)$r.squared, digits = 3),
-                        rob_p = round(summary(model.rb)$coefficients[1,4], digits = 5),
-                        observations = min(length(.$AGB_spatially_normalised_g_m2),length(.$HAG_plotmean_of_cellmax_m)),
-                        n_of_surveys = length(unique(.$ProjectCode)),
-                        Koppen_cc = paste(as.character(unique(.$KoppenCC)), collapse=", "))
-
-        model_info <- data.frame(lapply(model_info, type.convert), stringsAsFactors=FALSE)  # Convert to dataframe.
-        species_summary_table <- rbind(species_summary_table, model_info)       # Add new record to table.
+        broom::tidy(lm(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m + 0, data = .))
+    })
+# rename columns
+species_models.tbl.lm1 <- rename(species_models.tbl.lm1,
+                                 slope.lm=estimate,
+                                 std.error.lm=std.error,
+                                 statistic.lm=statistic,
+                                 p.value.lm=p.value
+                                 )
+# model summary
+species_models.tbl.lm2 <- peak_dataset_filt %>%
+    group_by(binomial_species) %>%
+    add_count(binomial_species) %>%                                             # Creates temporary count of the number of observations, allowing for subsequent filter.
+    filter(n>obs_threshold) %>%                                                             # Filter by minimum number of observations.
+    do({
+        broom::glance(lm(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m + 0, data = .))
+    })
+# rename columns
+species_models.tbl.lm2 <- rename(species_models.tbl.lm2,
+                                r.squared.lm=r.squared,
+                                adj.r.squared.lm=adj.r.squared,
+                                sigma.lm=sigma,
+                                statistic.lm=statistic,
+                                p.value.lm=p.value,
+                                df.lm=df,
+                                logLik.lm=logLik,
+                                AIC.lm=AIC,
+                                BIC.lm=BIC,
+                                deviance.lm=deviance,
+                                df.residual.lm=df.residual
+                                )
 
 
+# Fit linear models with robust regression
+# model parameters
+species_models.tbl.rlm1 <- peak_dataset_filt %>%
+    group_by(binomial_species) %>%
+    add_count(binomial_species) %>%                                             # Creates temporary count of the number of observations, allowing for subsequent filter.
+    filter(n>obs_threshold) %>%                                                             # Filter by minimum number of observations.
+    do({
+        broom::tidy(robust::lmRob(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m + 0, data = .))
+    })
+# rename columns
+species_models.tbl.rlm1 <- rename(species_models.tbl.rlm1,
+                                 slope.rlm=estimate,
+                                 std.error.rlm=std.error,
+                                 statistic.rlm=statistic,
+                                 p.value.rlm=p.value
+)
+
+# model summary
+species_models.tbl.rlm2 <- peak_dataset_filt %>%
+    group_by(binomial_species) %>%
+    add_count(binomial_species) %>%                                             # Creates temporary count of the number of observations, allowing for subsequent filter.
+    filter(n>obs_threshold) %>%                                                             # Filter by minimum number of observations.
+    do({
+        broom::glance(robust::lmRob(AGB_spatially_normalised_g_m2 ~ HAG_plotmean_of_cellmax_m + 0, data = .))
+    })
+# rename columns
+species_models.tbl.rlm2 <- rename(species_models.tbl.rlm2,
+                                  r.squared.rlm=r.squared,
+                                  sigma.rlm=sigma,
+                                  p.value.rlm=p.value,
+                                  df.rlm=df,
+                                  logLik.rlm=logLik,
+                                  AIC.rlm=AIC,
+                                  BIC.rlm=BIC,
+                                  deviance.rlm=deviance,
+                                  df.residual.rlm=df.residual
+)
+
+# combine tibbles
+species_metrics <- bind_cols(species_metrics.tbl,
+                             species_models.tbl.lm1,
+                             species_models.tbl.lm2,
+                             species_models.tbl.rlm1,
+                             species_models.tbl.rlm2)
+
+# Drop unwanted variables
+species_metrics <- select(species_metrics, -c(binomial_species,
+                           sigma.lm,
+                           statistic.lm,
+                           df.lm,
+                           logLik.lm,
+                           AIC.lm,
+                           BIC.lm,
+                           deviance.lm,
+                           df.residual.lm,
+                           binomial_species1,
+                           binomial_species2,
+                           binomial_species3,
+                           deviance,
+                           sigma,
+                           df.residual,
+                           term,
+                           adj.r.squared.lm,
+                           statistic.lm1,
+                           term1,
+                           statistic
+                           ))
+
+
+# Order
+species_metrics <- species_metrics2 %>%
+    arrange(PFT, Order, Family, Species)
+
+
+# Drop unwanted columns
+species_metrics <- species_metrics %>%
+    select(-c(binomial_species,
+              sigma.lm,
+              statistic.lm,
+              df.lm,
+              logLik.lm,
+              AIC.lm,
+              BIC.lm,
+              deviance.lm,
+              df.residual.lm,
+              binomial_species1,
+              deviance,
+              sigma,
+              df.residual,
+    ))
+
+# Convert tibble to dataframe (necessary for export with xlsx)
+species_metrics.df <- data.frame(species_metrics)
+species_metrics.df
+
+# Export species-level model summary as Excel file.
+model_summary_path <- paste(loc_dataset,"/Species summaries - test.xlsx", sep = "")
+write.xlsx(species_metrics.df, model_summary_path, row.names=FALSE)
+
+# clean up
+rm(species_metrics.tbl,
+   species_models.tbl.lm1,
+   species_models.tbl.lm2,
+   species_models.tbl.rlm1,
+   species_models.tbl.rlm2)
 
 
 
 
 
-# print(list_of_species_plots)    # Development testing only
+
+
+
+# Atempting with piping using Robust Regression implemented in the robust::lmRob package.
+# NB. The robust::lmRob() function that works with broom::tidy(), not the robustbase::lmRob().
+# model.lms <- lm(.$AGB_spatially_normalised_g_m2 ~ .$HAG_plotmean_of_cellmax_m + 0)  # Define model: linear with constrained intercept. # Ordinary Least Squares Regression
+# model.rb <- lmrob(.$AGB_spatially_normalised_g_m2 ~ .$HAG_plotmean_of_cellmax_m + 0, method = 'MM')  # Define model: Robust Regression - Robustbase package (preferentially using MM-estimation)
+
+# species_summary_table <- data.frame(plant_functional_type = character(),        # Create dataframe to collate model summary statistics.
+#                                     order = character(),
+#                                     family = character(),
+#                                     binomial_species = character(),
+#                                     nls_slope = double(),
+#                                     nls_slope_error = double(),
+#                                     nls_r2 = double(),
+#                                     nls_p = double(),
+#                                     rob_slope = double(),
+#                                     rob_slope_error = double(),
+#                                     rob_r2 = double(),
+#                                     rob_p = double(),
+#                                     Observations = integer(),
+#                                     n_of_surveys = integer(),
+#                                     Koppen_cc = character(),
+#                                     stringsAsFactors=FALSE
+#                                     )
+
+
+# model_info <- list()
+# model_info <- c(plant_functional_type = as.character(unique(.$plant_functional_type)),
+#                 order = as.character(unique(.$PlotOrder)),
+#                 family = as.character(unique(.$PlotFamily)),
+#                 binomial_species = as.character(unique(.$binomial_species)),
+#                 nls_slope = round(summary(model.lms)$coefficients[1], digits = 2),
+#                 nls_slope_error = round(summary(model.lms)$coefficients[2], digits = 2),
+#                 nls_r2 = round(summary(model.lms)$r.squared, digits = 3),
+#                 nls_p = round(summary(model.lms)$coefficients[1,4], digits = 5),
+#                 rob_slope = round(summary(model.rb)$coefficients[1], digits = 2),
+#                 rob_slope_error = round(summary(model.rb)$coefficients[2], digits = 2),
+#                 rob_r2 = round(summary(model.rb)$r.squared, digits = 3),
+#                 rob_p = round(summary(model.rb)$coefficients[1,4], digits = 5),
+#                 observations = min(length(.$AGB_spatially_normalised_g_m2),length(.$HAG_plotmean_of_cellmax_m)),
+#                 n_of_surveys = length(unique(.$ProjectCode)),
+#                 Koppen_cc = paste(as.character(unique(.$KoppenCC)), collapse=", "))
+#
+# model_info <- data.frame(lapply(model_info, type.convert), stringsAsFactors=FALSE)  # Convert to dataframe.
+# species_summary_table <- rbind(species_summary_table, model_info)       # Add new record to table.
+# })
 
 ### Produce table of species-level results ###
 # Order species_summary_table alphabetically by group, order, family and binomial species. NB. tolower deals with case issues.
-species_summary_table <- species_summary_table[order(tolower(species_summary_table$plant_functional_type),
-                                                     tolower(species_summary_table$order),
-                                                     tolower(species_summary_table$family),
-                                                     tolower(species_summary_table$binomial_species)
-                                                     ),]
-
-# Remove binomial species = 'Mixed Grasses' prior to exporting the table of model parameters.
-species_summary_table2 <- subset(species_summary_table, binomial_species !='Mixed Grasses')
-
-# Export model summary to excel file.
-model_summary_path <- paste(loc_dataset_filt,"/Species summaries.xlsx", sep = "")
-write.xlsx(species_summary_table2, model_summary_path, row.names=FALSE)         # Export results table as Excel file.
-
-
-
-### Create multipanel plots
-# list_of_species_plots_2 <- list_of_species_plots excluding Mixed Grass        # Remove 'Mixed grasses' from the list of species-level plots
-
-## Create multipanel figure of species plots ##
-# # Landscape layout
-#     number_of_col <- 6                                                          # Specify number of columns.
-#     outfile <- file.path(loc_dataset_filt,
-#                          paste("TEST S1 HAG Vs AGB by taxa - wide.png",sep="")) # Specify output filename.
-#     png(filename=outfile, width = 30, height = 18, units = 'cm',
-#         res = 300, bg = 'white')                                                # NB. This PNG call is key to include a white background.
-#     do.call("grid.arrange", c(plot_list_species,
-#                               ncol=number_of_col,
-#                               top = "Canopy height predicts biomass strongly at the species level"))
-#     dev.off()
+# species_summary_table <- species_summary_table[order(tolower(species_summary_table$plant_functional_type),
+#                                                      tolower(species_summary_table$order),
+#                                                      tolower(species_summary_table$family),
+#                                                      tolower(species_summary_table$binomial_species)
+#                                                      ),]
 #
-# # Portrait layout
-#     number_of_col <- 4                                                          # Specify number of columns.
-#     outfile <- file.path(loc_dataset_filt,
-#                          paste("TEST S1 HAG Vs AGB by species - tall.png",
-#                                             sep=""))                            # Specify output filename.
-#     png(filename=outfile, width = 18, height = 24, units = 'cm',
-#         res = 300, bg = 'white')                                                # NB. This PNG call is key to include a white background.
-#     do.call("grid.arrange", c(list_of_species_plots,
-#                               ncol=number_of_col,
-#                               top = "Canopy height predicts biomass strongly at the species level"))
-#     dev.off()
-
-
-
-
-
+# # Remove binomial species = 'Mixed Grasses' prior to exporting the table of model parameters.
+# species_summary_table2 <- subset(species_summary_table, binomial_species !='Mixed Grasses')
+#
+# # Export model summary to excel file.
+# model_summary_path <- paste(loc_dataset,"/Species summaries.xlsx", sep = "")
+# write.xlsx(species_summary_table2, model_summary_path, row.names=FALSE)         # Export results table as Excel file.
 
 
 
 
 ############## old code from species for loop ----
 # # For loop, to iterate through each species in the processed dataframe, subset speceis that have been processed, create plots.
-# for (i in sort(unique(peak_dataset_filt$binomial_species))){
-#     taxa_df <- subset(peak_dataset_filt, binomial_species==i)
+# for (i in sort(unique(peak_dataset$binomial_species))){
+#     taxa_df <- subset(peak_dataset, binomial_species==i)
 #
 #     x <- taxa_df$HAG_plotmean_of_cellmax_m                                      # Define x for models.
 #     y <- taxa_df$AGB_spatially_normalised_g_m2                                  # Define y for models.
 #
 #     # #  check if some x and y observations exist for this taxa, and exclude 'Mixed Grasses' taxon from plottings.
-#     # nam<-!is.na(data.frame(x,y))
-#     # num_r<-apply(nam, 1,sum)
-#     # valid_observations <- any(num_r==ncol(data.frame(x,y)))
-#     # if(valid_observations && i != 'Mixed Grasses'){
-#     #     meanHAG_vs_AGB_species <- ggplot(data = taxa_df,
-#     #                 aes(x = HAG_plotmean_of_cellmax_m,
-#     #                     y = AGB_spatially_normalised_g_m2,
-#     #                     colour = ProjectCode)) +
-#     #         geom_point(shape = 1, na.rm = TRUE) +
-#     #         scale_colour_viridis_d() +
-#     #         labs(x = expression("Mean canopy height (m)"),
-#     #              y = expression("Dry biomass (g m"^"-2"*")"),
-#     #              title = paste(i)) +
-#     #         theme_coding() +
-#     #         theme(plot.title = element_text(face="italic"),
-#     #               legend.position = c(0.35, 0.8)) +
-#     #         coord_cartesian(ylim = c(0, max_agb),
-#     #                         xlim = c(min_mean_hag, max_mean_hag),
-#     #                         expand=FALSE) +
-#     #         geom_smooth(method="lmrob",
-#     #                     formula= y ~ x-1,
-#     #                     aes(group=ProjectCode,
-#     #                         colour=ProjectCode),
-#     #                     se=TRUE, size=0.5, na.rm = TRUE)
-#
-#         # # Save species-level plots
-#         # outfile <- file.path(loc_species, paste("HAG_Vs_AGB ",i,".png",sep=""))
-#         # png(filename=outfile, width = 10, height = 10, units = 'cm', res = 400)
-#         # plot(meanHAG_vs_AGB_species)
-#         # dev.off()
-#
-#         # aggregated plots
-#         meanHAG_vs_AGB_species_combined <- ggplot(data = taxa_df,
-#                     aes(x = HAG_plotmean_of_cellmax_m,
-#                         y = AGB_spatially_normalised_g_m2)) +
-#             geom_point(shape = 1, na.rm = TRUE) +
-#             scale_colour_viridis_d() +
-#             labs(x = expression("Mean canopy height (m)"),
-#                  y = expression("Dry biomass (g m"^"-2"*")"),
-#                  title = paste(i)) +
-#             theme_coding() +
-#             theme(plot.title = element_text(face="italic"),
-#                   legend.position = c(0.35, 0.8)) +
-#             coord_cartesian(ylim = c(0, max_agb), xlim = c(min_mean_hag, max_mean_hag), expand=FALSE) +
-#             geom_smooth(method="lmrob", formula= y ~ x-1, se=TRUE, size=0.5, na.rm = TRUE)
-#
-#
-#         # Save plots for multipanel figure
-#             my_i <- i
-#             plotname <- paste("plot", my_i, sep="")
-#             list_of_species_plots[[plotname]] <- meanHAG_vs_AGB_species_combined
 #
 #         # Compute and summarise model statistics
 #             # Ordinary Least Squares Regression
@@ -713,83 +853,92 @@ write.xlsx(species_summary_table2, model_summary_path, row.names=FALSE)         
 
 
 
+
+
+
+
+
+
+
+
+
 #### 5. PFT-level analysis ####
 ### Plant functional type ###
-pft_summary_table <- data.frame(plant_functional_type=character(),
-                                ols_slope=double(),
-                                ols_error=double(),
-                                ols_r2=double(),
-                                ols_p=double(),
-                                rob_slope=double(),
-                                rob_slope_error=double(),
-                                rob_r2=double(),
-                                rob_p=double(),
-                                df=integer(),
-                                number_of_species=character(),
-                                stringsAsFactors=FALSE)                         # Create dataframe for model parameter summary.
-
-
-
-peak_dataset_filt %>%
-    filter(AGB_spatially_normalised_g_m2 > 0 & HAG_plotmean_of_cellmax_m > 0) %>%  # Filter incomplete observations.
-    group_by(plant_functional_type) %>%
-    do({plot <- ggplot(., aes(x = HAG_plotmean_of_cellmax_m,
-                              y = AGB_spatially_normalised_g_m2,
-                              colour = binomial_species)) +
-        geom_point(shape = 1, na.rm = TRUE) +
-        scale_colour_viridis_d() +
-        labs(x = expression("Mean canopy height (m)"),
-             y = expression("Dry biomass (g m"^"-2"*")"),
-             title = paste(.$plant_functional_type)) +
-        theme_coding() +
-        theme(legend.position = c(0.35, 0.8)) +
-        coord_cartesian(ylim = c(0, max_agb),
-                        xlim = c(0, max_mean_hag),
-                        expand = FALSE) +
-        geom_smooth(method="lmrob",
-                    formula= y ~ x-1,
-                    aes(group=binomial_species),
-                    se=TRUE, size=0.5, na.rm = TRUE)            
-        ggsave(paste0(loc_pft, "/", unique(.$plant_functional_type),            # Save plot 
-                  ".png", sep = ''), width = 10, height = 10,
-           units = 'cm', plot = plot)                           
-
-    # Fit and summarise PFT-level models
-    model.lms <- lm(.$AGB_spatially_normalised_g_m2 ~ .$HAG_plotmean_of_cellmax_m + 0)  # Fit linear model with OLS and constrained intercept.
-    model.rb <- lmrob(.$AGB_spatially_normalised_g_m2 ~ .$HAG_plotmean_of_cellmax_m + 0, method = 'MM')  # Fit linear model with robust regression (preferentially via MM-estimation).
-
-    # Isla's advice needed ####
-    # Need to expand this pipe to return parameters of PFT-level fitted models (incorporating this functionality from the below for loop)
-
-    model_info <- list()                                                        # Reset model info. But is this necessary?
-    model_info <- c(plant_functional_type = as.character(unique(.$plant_functional_type)),
-                    ols_slope = round(summary(model.lms)$coefficients[1], digits = 2),
-                    ols_error = round(summary(model.lms)$coefficients[2], digits = 2),
-                    ols_r2 = round(summary(model.lms)$r.squared, digits = 3),
-                    ols_p = round(summary(model.lms)$coefficients[1,4], digits = 5),
-                    rob_slope = round(summary(model.rb)$coefficients[1], digits = 2),
-                    rob_slope_error = round(summary(model.rb)$coefficients[2], digits = 2),
-                    rob_r2 = round(summary(model.rb)$r.squared, digits = 3),
-                    rob_p = round(summary(model.rb)$coefficients[1,4], digits = 5),
-                    df = summary(model.rb)$df[2],
-                    number_of_species = length(unique(.$binomial_species)))
-# 
-#     # Convert to dataframe
-#     model_info <- data.frame(lapply(model_info, type.convert), stringsAsFactors=FALSE)
-# 
-#     # Add new record to table.
-#     pft_summary_table <- rbind(pft_summary_table, model_info)
-    
-    
-    })
-# Isla's advice needed ####
-# Isla, have you got any idea what the error thrown by the above pipe is cased by? I tried following the tracebacks, but wasn't able to interpret the output.
+# pft_summary_table <- data.frame(plant_functional_type=character(),
+#                                 ols_slope=double(),
+#                                 ols_error=double(),
+#                                 ols_r2=double(),
+#                                 ols_p=double(),
+#                                 rob_slope=double(),
+#                                 rob_slope_error=double(),
+#                                 rob_r2=double(),
+#                                 rob_p=double(),
+#                                 df=integer(),
+#                                 number_of_species=character(),
+#                                 stringsAsFactors=FALSE)                         # Create dataframe for model parameter summary.
+#
+#
+#
+# peak_dataset %>%
+#     filter(AGB_spatially_normalised_g_m2 > 0 & HAG_plotmean_of_cellmax_m > 0) %>%  # Filter incomplete observations.
+#     group_by(plant_functional_type) %>%
+#     do({plot <- ggplot(., aes(x = HAG_plotmean_of_cellmax_m,
+#                               y = AGB_spatially_normalised_g_m2,
+#                               colour = binomial_species)) +
+#         geom_point(shape = 1, na.rm = TRUE) +
+#         scale_colour_viridis_d() +
+#         labs(x = expression("Mean canopy height (m)"),
+#              y = expression("Dry biomass (g m"^"-2"*")"),
+#              title = paste(.$plant_functional_type)) +
+#         theme_coding() +
+#         theme(legend.position = c(0.35, 0.8)) +
+#         coord_cartesian(ylim = c(0, max_agb),
+#                         xlim = c(0, max_mean_hag),
+#                         expand = FALSE) +
+#         geom_smooth(method="lmrob",
+#                     formula= y ~ x-1,
+#                     aes(group=binomial_species),
+#                     se=TRUE, size=0.5, na.rm = TRUE)
+#         ggsave(paste0(loc_pft, "/", unique(.$plant_functional_type),            # Save plot
+#                   ".png", sep = ''), width = 10, height = 10,
+#            units = 'cm', plot = plot)
+#
+#     # Fit and summarise PFT-level models
+#     model.lms <- lm(.$AGB_spatially_normalised_g_m2 ~ .$HAG_plotmean_of_cellmax_m + 0)  # Fit linear model with OLS and constrained intercept.
+#     model.rb <- lmrob(.$AGB_spatially_normalised_g_m2 ~ .$HAG_plotmean_of_cellmax_m + 0, method = 'MM')  # Fit linear model with robust regression (preferentially via MM-estimation).
+#
+#     # Isla's advice needed ####
+#     # Need to expand this pipe to return parameters of PFT-level fitted models (incorporating this functionality from the below for loop)
+#
+#     model_info <- list()                                                        # Reset model info. But is this necessary?
+#     model_info <- c(plant_functional_type = as.character(unique(.$plant_functional_type)),
+#                     ols_slope = round(summary(model.lms)$coefficients[1], digits = 2),
+#                     ols_error = round(summary(model.lms)$coefficients[2], digits = 2),
+#                     ols_r2 = round(summary(model.lms)$r.squared, digits = 3),
+#                     ols_p = round(summary(model.lms)$coefficients[1,4], digits = 5),
+#                     rob_slope = round(summary(model.rb)$coefficients[1], digits = 2),
+#                     rob_slope_error = round(summary(model.rb)$coefficients[2], digits = 2),
+#                     rob_r2 = round(summary(model.rb)$r.squared, digits = 3),
+#                     rob_p = round(summary(model.rb)$coefficients[1,4], digits = 5),
+#                     df = summary(model.rb)$df[2],
+#                     number_of_species = length(unique(.$binomial_species)))
+# #
+# #     # Convert to dataframe
+# #     model_info <- data.frame(lapply(model_info, type.convert), stringsAsFactors=FALSE)
+# #
+# #     # Add new record to table.
+# #     pft_summary_table <- rbind(pft_summary_table, model_info)
+#
+#
+#     })
+# # Isla's advice needed ####
+# # Isla, have you got any idea what the error thrown by the above pipe is cased by? I tried following the tracebacks, but wasn't able to interpret the output.
 
 
 
 # For loop, to iterate through each plant functional type, subset species that have been processed, create plots.
-for (i in sort(unique(peak_dataset_filt$plant_functional_type))){
-    pft_df <- subset(peak_dataset_filt, plant_functional_type==i)
+for (i in sort(unique(peak_dataset$plant_functional_type))){
+    pft_df <- subset(peak_dataset, plant_functional_type==i)
 
     # define key variables
     x <- pft_df$HAG_plotmean_of_cellmax_m
@@ -1060,13 +1209,13 @@ pft_model_slope <- ggplot(data = pft_model_summary,
 
 
 #### Sevilleta Analysis ----
-# working with: sev_dataset_filt
+# working with: sev_dataset
                                                                                 # Sevilleta species sampled include:
                                                                                 #  c("Larrea tridentata", "Bouteloua eriopoda", "Gutierrezia sarothrae", "Yucca elata")
                                                                                 # and also several one off species (huniper, pinion, cane cholla cacti, prickely pear cacti)
 # Compute scaling parameters from minimum and maximum values
-max_mean_hag <- max(sev_dataset_filt$HAG_plotmean_of_cellmax_m, na.rm = TRUE)
-max_agb <- 1.35*max(sev_dataset_filt$AGB_spatially_normalised_g_m2, na.rm = TRUE)
+max_mean_hag <- max(sev_dataset$HAG_plotmean_of_cellmax_m, na.rm = TRUE)
+max_agb <- 1.35*max(sev_dataset$AGB_spatially_normalised_g_m2, na.rm = TRUE)
 
 # Mean HAG Vs. AGB grouped by species
 # (mean of maximum) canopy height as predictor of aboveground biomass by binomial taxa. Creates:
@@ -1090,8 +1239,8 @@ sev_summary_table <- data.frame(binomial_species = character(),
                                 )
 
 # For loop, to iterate through each individual dataset, subset speceis that have been processed, create plots.
-for (i in sort(unique(sev_dataset_filt$binomial_species))){
-    taxa_df <- subset(sev_dataset_filt, binomial_species==i)
+for (i in sort(unique(sev_dataset$binomial_species))){
+    taxa_df <- subset(sev_dataset, binomial_species==i)
 
     x <- taxa_df$HAG_plotmean_of_cellmax_m                                      # Define x for models.
     y <- taxa_df$AGB_spatially_normalised_g_m2                                  # Define y for models.
