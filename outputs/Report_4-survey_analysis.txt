@@ -1,0 +1,6 @@
+Drone Allometry Experiment: Summary Report 
+ Andrew Cunliffe <andrewmcunliffe@gmail.com> 
+ Generated on:  2020-05-03 
+ --------------------------------------------------------------------------------- 
+ 
+ For species-level models, R2 ranges from  0.5  to  1 , with a mean of:  0.85 

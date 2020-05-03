@@ -1,7 +1,17 @@
 # Script for statistical analysis and visualisation of data for the drone photogrammetry allometry project.
 
+## Remember in a repository you shoudl not set the file path, the default path
+## is already the correct path which is to the repository it's self. By setting
+## the file path you are making the repository not reproducible and it will 
+## not work on other people's computers.  Code in a repository should be able to
+## be run without the user having to change any code.  With appropriate relative
+## file paths this is totally possible.  With custom set ones, everything breaks 
+## on different machines.  Using the appropriate default relative file paths 
+## will also make your code shorter and easier to read.
+
+## Delete this section of code
 # Establish operating environment ----
-home <- "C:/workspace/DroneAllometry/"
+# home <- "C:/workspace/DroneAllometry/"
 
 ### troubleshooting ###
 # options(repos = c(CRAN = "http://cran.rstudio.com"))  # set default CRAN mirror
@@ -32,7 +42,7 @@ library(lme4)                                                                   
 library(lmerTest)                                                             # For extracting p values from linear mixed effects models (but can sometimes conflict with other packages, so use carfeully and be aware of errors!).
 library(ggeffects)                                                              # For plotting mixed effects models.
 library(sjPlot)                                                                 # For plotting mixed effects models.
-library(xlsx)                                                                   # For writing Excel files of summary tables.
+# library(xlsx) ## Don't use this package, it is unnessecary just use csv files # For writing Excel files of summary tables.
 library("cvTools")                                                              # USed for cross-validation of models
 library(RColorBrewer)
 library(scales)                                                                 # Used for extracting hexadecimal colour codes
@@ -43,8 +53,21 @@ library(scales)                                                                 
 #### Load data ----
 ###*************************************************
 
-df <- read_excel(paste0(home, "outputs/processed_database.xlsx"),
-                      na = "NA")                                                # Read in summary data.
+# Don't use excel with R - it flags lots of issues, just make your data into a csv. 
+# There doesn't seem to be any reason why this file should be an xlsx file and csv 
+# can be loaded and worked with in excel.  It is also a smaller file, thus better
+# for storage in repos and such.  If you don't use xlsx, then you won't have any 
+# database issues, you won't need the xls package that doesn't work on my computer
+# and your code will be much more reproducible.
+
+# Remember also that you don't need to set a file path when working in a repository.
+# There is an automatic file path which is the repository it's self.
+
+# This is the line of code you should use to load the data.
+
+df <- read_csv("outputs/processed_database.csv")
+
+# df <- read_excel(paste0(home, "outputs/processed_database.xlsx"), na = "NA")                                                # Read in summary data.
 
 #### Subset data
 df <- df %>%
@@ -74,28 +97,40 @@ df_sev <- df %>%
   filter(!is.na(AGB_g_m2) & !is.na(HAG_plotmean_of_cellmax_m))                # Filter for observations with both HAG and AGB values.
 
 
-
+# REMOVE THIS SECTION - It will cause problems for all other users
 ###*************************************************
 #### Create/verify output directories ----
 ###*************************************************
 
-loc_outputs <- paste0(home, "outputs")
-dir.create(loc_outputs, showWarnings = FALSE)
+## This is all unnessescary because there is alread a defalt file path which is 
+## your repository.  Just use the file path in the code and then it will be 
+## reproducible and will run autmatically on my and everyone else's computer.
+## By setting the file path to something that only applies to your computer,
+## you are making the code non-reproducible and this means that each user has
+## to edit the code to make it work.  Code in a GitHub repo should ideally run
+## without any changes from the new user.  And this is easy to set up here.
 
-loc_df <- paste0(home, "outputs/0 - Dataset-level")
-dir.create(loc_df, showWarnings = FALSE)
+## Remember also to never create file paths with spaces in them when coding as 
+## This will create problems particularly on PC machines that cannot handle spaces.
+## Macs are more flexible here.
 
-loc_survey <- paste0(home, "outputs/1 - Survey-level plots")
-dir.create(loc_survey, showWarnings = FALSE)
-
-loc_species <- paste0(home, "outputs/2 - Species-level plots")
-dir.create(loc_species, showWarnings = FALSE)
-
-loc_pft <- paste0(home, "outputs/3 - PFT-level plots")
-dir.create(loc_pft, showWarnings = FALSE)
-
-loc_sevilleta <- paste0(home, "outputs/9 - Sevilleta")
-dir.create(loc_sevilleta, showWarnings = FALSE)
+# loc_outputs <- paste0(home, "outputs")
+# dir.create(loc_outputs, showWarnings = FALSE)
+# 
+# loc_df <- paste0(home, "outputs/0 - Dataset-level")
+# dir.create(loc_df, showWarnings = FALSE)
+# 
+# loc_survey <- paste0(home, "outputs/1 - Survey-level plots")
+# dir.create(loc_survey, showWarnings = FALSE)
+# 
+# loc_species <- paste0(home, "outputs/2 - Species-level plots")
+# dir.create(loc_species, showWarnings = FALSE)
+# 
+# loc_pft <- paste0(home, "outputs/3 - PFT-level plots")
+# dir.create(loc_pft, showWarnings = FALSE)
+# 
+# loc_sevilleta <- paste0(home, "outputs/9 - Sevilleta")
+# dir.create(loc_sevilleta, showWarnings = FALSE)
 
 ###*************************************************
 #### Create plot themes, symbology and scaling  ----
@@ -289,7 +324,8 @@ theme_plots <- function() {
 
 
     # Export global map
-        ggsave(paste0(loc_outputs, "/Global map from R.png"), width = 8, height = 6, dpi=500)
+        ## change all file paths to the correct relative file path
+        ggsave("outputs/Figure_1/Global_map_from_R.png", width = 8, height = 6, dpi=500)
 
 
 
@@ -349,7 +385,7 @@ theme_plots <- function() {
           )
 
       # Export climate space plot
-        outfile <- file.path(home, "outputs",paste("Sampled climate space (peak biomass).png",sep="")) # Specify filepath
+        outfile <- file.path("outputs/Figure_1/Sampled_climate_space_(peak_biomass).png") # Specify filepath
         png(filename=outfile, width = 11, height = 11, units = 'cm', res = 500)         # Save plot
         plot(Whittaker_plot)
         dev.off()
@@ -365,7 +401,7 @@ theme_plots <- function() {
               ))
 
       # Export figure
-      outfile <- file.path(home, "outputs/Figure 1/",paste(" Figure 1 (parts A and B).png",sep="")) # Specify filepath
+      outfile <- file.path("outputs/Figure_1/Figure_1_(parts_A_and_B).png") # Specify filepath
       png(filename=outfile, width = 12, height = 16, units = 'cm', res = 500)         # Save plot
       plot(figure1)
       dev.off()
@@ -378,13 +414,13 @@ theme_plots <- function() {
 
 ### Visualisation of solar offsets
   plot_solar_offset_mins <- hist(df$minutes_offset_from_solar_noon)
-  outfile <- file.path(loc_df, paste("Histogram of time offset between survey and solar noon.png",sep="")) # Specify filepath
+  outfile <- file.path("outputs/0-Dataset-level/Histogram_of_time_offset_between_survey_and_solar_noon.png") # Specify filepath
   png(filename=outfile, width = 10, height = 10, units = 'cm', res = 500)       # Save plot
   plot(plot_solar_offset_mins)
   dev.off()
 
   plot_solar_offset_degrees <- hist(df$solar_elevation_offset)
-  outfile <- file.path(loc_df, paste("Histogram of sun elevation offset between survey and solar noon.png",sep="")) # Specify filepath
+  outfile <- file.path("outputs/0-Dataset-level/Histogram_of_sun_elevation_offset_between_survey_and_solar_noon.png") # Specify filepath
   png(filename=outfile, width = 10, height = 10, units = 'cm', res = 500)       # Save plot
   plot(plot_solar_offset_degrees)
   dev.off()
@@ -570,7 +606,7 @@ df %>%
                     formula= y ~ x-1,
                     aes(group=binomial_species),
                     se=FALSE, size=0.5, na.rm = TRUE, alpha=0.2)
-    ggsave(paste0(loc_survey, "/", unique(.$survey_code),
+    ggsave(paste0("outputs/1-Survey-level_plots", "/", unique(.$survey_code),
                   ".png", sep = ''), width = 10, height = 10,
            units = 'cm', plot = plot)
     })
@@ -669,8 +705,11 @@ df %>%
     species_summary3$lm_p[species_summary2$lm_p == "3e-04"] <- "0.0003"
 
   # Export model summary as Excel file.
-    model_summary_path <- paste(loc_outputs,"/Species summaries.xlsx", sep = "")
-    write.xlsx(species_summary3, model_summary_path, row.names=FALSE)
+    ## Don't use excel to output data - this will cause problems.  Just use csv.
+    #model_summary_path <- paste(loc_outputs,"outputs/Species summaries.xlsx", sep = "")
+    #write.xlsx(species_summary3, "outputs/Species summaries.xlsx", row.names=FALSE)
+    
+    write_csv(species_summary3, "outputs/Species summaries.csv")
 
 }
 
@@ -720,7 +759,7 @@ df %>%
                             se=TRUE, size=0.5, na.rm = TRUE)
 
             # Save plots
-            ggsave(paste0(loc_species, "/", unique(.$binomial_species),
+            ggsave(paste0("outputs/2-Species-level_plots", "/", unique(.$binomial_species),
                           ".png", sep = ''), width = 10, height = 10,
                    units = 'cm', plot = plot)
         })
@@ -794,7 +833,7 @@ df %>%
   species_figure_p <- wrap_plots(species_plotlist, ncol = 6)
 
   # Export figure
-  outfile <- file.path(home, "outputs/Figure S1 - Species level/",paste(" Figure S1 - species-level height vs biomass.png",sep="")) # Specify filepath
+  outfile <- file.path("outputs/Figure_S1-Species_level/Figure_S1-Species-level_height_vs_biomass.png") # Specify filepath
   png(filename=outfile, width = 29, height = 30, units = 'cm', res = 400)         # Save plot
   plot(species_figure_p)
   dev.off()
@@ -804,7 +843,7 @@ df %>%
   species_figure_l <- wrap_plots(species_plotlist, ncol = 7)
 
   # Export figure
-  outfile <- file.path(home, "outputs/",paste(" Species-level height vs biomass.png",sep="")) # Specify filepath
+  outfile <- file.path("outputs/Figure_S1-Species_level/Species-level_height_vs_biomass.png") # Specify filepath
   png(filename=outfile, width = 39, height = 27, units = 'cm', res = 400)         # Save plot
   plot(species_figure_l)
   dev.off()
@@ -1057,8 +1096,10 @@ df %>%
             rm(pft_info)  # Tidy up
 
             # Export model summary as Excel file.
-            model_summary_path_xlsx <- paste(loc_outputs,"/PFT summaries.xlsx", sep = "")
-            write.xlsx(pft_summary2, model_summary_path_xlsx, row.names=FALSE)
+            # model_summary_path_xlsx <- paste(loc_outputs,"outputs/PFT summaries.xlsx", sep = "")
+            # write.xlsx(pft_summary2, model_summary_path_xlsx, row.names=FALSE)
+            
+            write_csv(pft_summary2, "outputs/PFT summaries")
 
             # model_summary_path_txt <- paste(loc_outputs,"/PFT summaries.txt", sep = "")
             # write.table(pft_summary2, model_summary_path_txt, row.names=FALSE, sep=",")
@@ -1122,7 +1163,7 @@ df %>%
         PFT_plotlist[[pft]] <- pft_plot  # add each plot into plot list
 
         # Save plots
-        ggsave(paste0(loc_pft, "/", pft, ".png", sep = ''),
+        ggsave(paste0("outputs/3-PFT-level_plots", "/", pft, ".png", sep = ''),
                width = 7, height = 7, units = 'cm',
                plot = pft_plot)
 
@@ -1134,7 +1175,7 @@ df %>%
         PFT_plotlist$Shrub + PFT_plotlist$Succulent + PFT_plotlist$Tree)
 
     # Export figure
-    outfile <- file.path(home, "outputs/Figure 2/",paste(" Figure 2 (from R).png",sep="")) # Specify filepath
+    outfile <- file.path("outputs/Figure_2/Figure_2_(from_R).png") # Specify filepath
     png(filename=outfile, width = 16, height = 11, units = 'cm', res = 500)         # Save plot
     plot(PFT_Figure)
     dev.off()
@@ -1162,7 +1203,7 @@ df %>%
               title = expression("Histogram of wind speeds")) +
          theme_plots())
 
-      outfile <- file.path(loc_df, paste("Histogram of wind speeds.png",sep="")) # Specify filepath
+      outfile <- file.path("outputs/0-Dataset-level/Histogram of wind speeds.png") # Specify filepath
       png(filename=outfile, width = 10, height = 10, units = 'cm', res = 500)     # Save plot
       plot(wind_histogram)
       dev.off()
@@ -1306,7 +1347,7 @@ df %>%
       )
 
       # Export figure
-      outfile <- file.path(loc_df, paste("Interaction wind speed and model slopes - labelled.png",sep="")) # Specify filepath
+      outfile <- file.path("outputs/0-Dataset-level/Interaction_wind_speed_and_model_slopes-labelled.png") # Specify filepath
       png(filename=outfile, width = 8, height = 8, units = 'cm', res = 500)     # Save plot
       plot(wind.plot)
       dev.off()
@@ -1336,7 +1377,7 @@ df %>%
     )
 
     # Export figure
-      outfile <- file.path(loc_df, paste("Interaction wind speed and model slopes.png",sep=""))
+      outfile <- file.path("outputs/0-Dataset-level/Interaction_wind_speed_and_model_slopes.png")
       png(filename=outfile, width = 8, height = 8, units = 'cm', res = 500)
       plot(wind.plot)
       dev.off()
@@ -1392,7 +1433,7 @@ df %>%
                title = expression("Histogram of solar elevations")) +
           theme_plots())
 
-      outfile <- file.path(loc_df, paste("Histogram of solar elevations.png",sep="")) # Specify filepath
+      outfile <- file.path("outputs/0-Dataset-level/Histogram_of_solar_elevations.png") # Specify filepath
       png(filename=outfile, width = 10, height = 10, units = 'cm', res = 500)     # Save plot
       plot(solar_elevation_histogram)
       dev.off()
@@ -1404,7 +1445,7 @@ df %>%
                y = expression("Sky code (0 = clear)")) +
           theme_plots())
 
-      outfile <- file.path(loc_df, paste("Sun elevation vs sky conditions.png",sep="")) # Specify filepath
+      outfile <- file.path("outputs/0-Dataset-level/Sun_elevation_vs_sky_conditions.png") # Specify filepath
       png(filename=outfile, width = 10, height = 10, units = 'cm', res = 500)     # Save plot
       plot(solar_elevation_vs_sky)
       dev.off()
@@ -1442,7 +1483,7 @@ df %>%
         )
 
         # Export figure
-        outfile <- file.path(loc_df, paste("Interaction sun elevation and model slopes.png",sep="")) # Specify filepath
+        outfile <- file.path("outputs/0-Dataset-level/Interaction_sun_elevation_and_model_slopes.png") # Specify filepath
         png(filename=outfile, width = 8, height = 8, units = 'cm', res = 500)     # Save plot
         plot(sun.plot)
         dev.off()
@@ -1455,7 +1496,7 @@ df %>%
              )
 
     # Export figure
-      outfile <- file.path(loc_outputs, paste("Figure 3/Figure 3 - Interactions.png",sep="")) # Specify filepath
+      outfile <- file.path("outputs/Figure_3/Figure_3-Interactions.png") # Specify filepath
       png(filename=outfile, width = 16, height = 8, units = 'cm', res = 500)     # Save plot
       plot(Interactions)
       dev.off()
@@ -1472,28 +1513,66 @@ df %>%
     # by treating species as a random effect.
 
     # We think it is sensible to treat wind speed as a continuous  (fixed) rather than categorical  (random) variable? (at most 4 levels, but usually 2)
+    ## I would say here that you are testing the windspeed effect as a fixed effect.  
+    ## You could make it a random effect if you wanted to "remove" the variation due to windspeed
+    ## by creating a high, moderate, low, no wind categories or something, but that isn't the 
+    ## point of this analysis I don't think.  Here you are testing to see if wind speed is
+    ## important and whether there is an interaction with height - thus it should be a fixed effect.
+      
     # model predicts biomass as a function of canopy height interacting with wind speed, with speceis included as a random effect
     model_wind <- lmerTest::lmer(AGB_g_m2 ~ HAG_plotmean_of_cellmax_m * wind_speed + (1|binomial_species), data = df_peak)
     summary(model_wind)
 
 
     # How its the random effect working with multiple species?
+    
+    ## The species random effect is removing the variation among species from the 
+    ## overall model result.  So that it can test the effects of canopy height and
+    ## wind speed in isolation from species effects.
+    
     # Are those species without replicates being used? or excluded?
+    
+    ## Everything is being used.  The species effect is at the full study level, so 
+    ## it removes any variation among estimates for the same species.  The model 
+    ## doesn't know about sites and doesn't care if there is no variation in certain
+    ## cases.  Mixed models can handle some amount of low replication, as long as 
+    ## many species do have replicates.  You would know if it didn't run due to this
+    ## "lack of balance" because there would be warnings or errors. You can do various
+    ## model checking steps to see how well the model ran.
 
 
     # NB. Including plant_functional_type and then binomial_species as nested random effects would
     # better accounting for hierarchical structure in these data, but there isn't yet enough data
     # for this to be informative.
         # model_wind <- lmer(AGB_g_m2 ~ HAG_plotmean_of_cellmax_m * wind_speed + (1|plant_functional_type/binomial_species), data = df_peak)
+    
+    ## I am not sure it would really do much more because all species are always 
+    ## within the same functional groups, so you won't really remove additional
+    ## variation by adding the functional group level.  You could only have a functional
+    ## group random effect, if you thought that better captured the variation you want
+    ## "to account for" in this model.
 
-
+    
     # NB. we don't have enough data to usefully include survey_code as a random effect (representing site and year)
       # model_wind <- lmer(AGB_g_m2 ~ HAG_plotmean_of_cellmax_m * wind_speed + (1|survey_code), data = df_peak)
 
+    ## This is where you are probably running into "balance" or "replication" issues.  
+    ## Because many sites were just surveyed once - right?
 
     # # Include plant_functional_type and then binomial_species as nested random effects
     # # accounting for (some of) the hierarchical structure of the data
     # summary(model_wind)
+    
+    ## I think the key thing here is to decide what variation you want to remove
+    ## when you ask the question does wind influence the estimate of height.  Do you
+    ## want to ask that question across all of your dataset (no random effects), or
+    ## within species (species random effect), or within functional groups (functional
+    ## group random effect).  In the main model, you want to account as best as you can
+    ## for the fact that you collected these data across different sites, species, etc.
+    ## and that you expect results to be more similar in your main relationships for
+    ## the same site and/or the same species.  With this wind analysis, you may
+    ## or may not want to make that assumption.  It could be that the wind effect
+    ## is pretty constant within and among sites.  Do you follow that argumentation?
 
 
     # Visualise model predictions
@@ -1501,14 +1580,98 @@ df %>%
 
     ggpredict(model_wind, terms = c("wind_speed")) %>% plot()
     # Is this plot useful for illustrating the overall influence of wind on the allometric function?
+    
+    ## I don't think that is the most useful plot, as we are still left wondering why.  
+    ## I think you want an interaction plot, like in the Orca manuscript, showing how
+    ## the relationship between AGB_g_m2 ~ HAG_plotmean_of_cellmax_m changes at low, 
+    ## medium and high wind speeds.  Remember that there are only two parameters that 
+    ## are significant in the model results - the intercept and the interaction.  So the 
+    ## intercept indicates that the AGB is different from zero.  The significant 
+    ## interaction means that the relationship between AGB_g_m2 ~ HAG_plotmean_of_cellmax_m
+    ## varies with different wind speeds and the fact that the estimate is positive
+    ## means that as the wind speed increases the relationship becomes stronger.
+    ## I am not exactly sure on the explaination for why that would be though. 
+    ## Over to you for more thoughts on that.  See the figure below.
 
 
     # Visualise random effects
     library(glmmTMB)
     (re.effects <- plot_model(model_wind, type = "re", show.values = TRUE))
 
+    ## This plot shows you which species have higher AGB relative to others. 
+    ## Prosopis velutina has the highest AGB.
+    
+    theme_fancy <- function() {
+      theme_bw() +
+        theme(
+          text = element_text(family = "Helvetica"),
+          axis.text = element_text(size = 8, color = "black"),
+          axis.title = element_text(size = 10, color = "black"),
+          axis.line.x = element_line(size = 0.3, color = "black"),
+          axis.line.y = element_line(size = 0.3, color = "black"),
+          axis.ticks = element_line(size = 0.3, color = "black"),
+          panel.border = element_blank(),
+          panel.grid.major.x = element_blank(),
+          panel.grid.minor.x = element_blank(),
+          panel.grid.minor.y = element_blank(),
+          panel.grid.major.y = element_blank(),
+          plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), units = , "cm"),
+          plot.title = element_text(
+            size = 10,
+            vjust = 1,
+            hjust = 0.5,
+            color = "black"
+          ),
+          legend.text = element_text(size = 10, color = "black"),
+          legend.title = element_text(size = 10, color = "black"),
+          legend.position = c(0.9, 0.9),
+          legend.key.size = unit(0.9, "line"),
+          legend.background = element_rect(
+            color = "black",
+            fill = "transparent",
+            size = 2,
+            linetype = "blank"
+          )
+        )
+    }
+    
+    legend_loc <- c(0.25, 0.9)
+    legend_title <- expression("Wind speed (m s" ^ "-2" * ")")
+    
+    wind_levels <- "wind_speed[1, 3, 5]"  # set levels
+    
+    predictions <- ggpredict(model_wind, terms = c("HAG_plotmean_of_cellmax_m", wind_levels))
 
-    # predictions <- ggpredict(model_wind, terms = c("HAG_plotmean_of_cellmax_m"))
+    (interaction_plot <- ggplot() +
+        geom_line(
+          data = predictions,
+          aes(x = x, y = predicted, colour = group),
+          size = 1) +
+        geom_ribbon(data = predictions,
+          aes(x = x,
+            ymin = conf.low,
+            ymax = conf.high,
+            fill = group),
+          alpha = 0.2) +
+        theme_fancy() +
+        theme(legend.title = element_text(size = 8),
+          legend.text = element_text(size = 6, face = "italic"),
+          legend.key.size = unit(0.9, "line"),
+          legend.background = element_rect(color = "black", 
+                                           fill = "transparent", size = 4, 
+                                           linetype = "blank"), 
+          legend.position = legend_loc) +
+        labs(x = "Max. height above ground (m)", 
+             y = expression("Above ground biomass (g m" ^ "-2" * ")"), 
+             fill = "Wind speed", colour = "Wind speed") +
+        scale_colour_viridis_d(legend_title, option = "magma", direction = 1, end = 0.8) +
+        scale_fill_viridis_d(legend_title, option = "magma", direction = 1, end = 0.8))
+    
+    ggsave(interaction_plot, filename = "outputs/interaction_plot.png",
+           width = 12,
+           height = 10,
+           units = "cm")
+
 
     # # Plot model predictions on data
     # (plot.model <- ggplot() +
@@ -1519,11 +1682,6 @@ df %>%
     #                alpha = 0.1, size = 2) +
     #     theme_classic() +
     #     labs(x = "HAG_plotmean_of_cellmax_m", y = "AGB_g_m2"))
-
-
-
-
-
 
 
 
@@ -1541,7 +1699,7 @@ df %>%
 
 
   ### Save report
-    report_path <- file(paste0(loc_outputs,"/Report 4 - survey analysis.txt"))
+    report_path <- file("outputs/Report_4-survey_analysis.txt")
     cat("Drone Allometry Experiment: Summary Report \n",
         "Andrew Cunliffe <andrewmcunliffe@gmail.com> \n",
         "Generated on: ", today, "\n",
@@ -1592,7 +1750,7 @@ df_sev %>%
                         aes(group=survey_code,
                             colour=survey_code),
                         se=TRUE, size=0.5, na.rm = TRUE)
-        ggsave(paste0(loc_sevilleta, "/", unique(.$binomial_species),
+        ggsave(paste0("outputs/9-Sevilleta", "/", unique(.$binomial_species),
                       ".png", sep = ''), width = 10, height = 10,
                units = 'cm', plot = plot)                                       # Save plots
     })
