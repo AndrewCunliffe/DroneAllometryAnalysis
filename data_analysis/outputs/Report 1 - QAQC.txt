@@ -1,0 +1,14 @@
+Drone Allometry Experiment: QAQC Report
+Andrew Cunliffe <andrewmcunliffe@gmail.com>
+Generated on 2020-05-04
+
+---------------------------------------------------------------------------------
+Quality Control Check Summary
+Number of QC warnings found = 3
+
+WARNING: missing entry in life cycle strategy
+WARNING: long delay between survey and harvest (>20 days)
+WARNING: long delay between survey and harvest (>30 days)
+
+---------------------------------------------------------------------------------
+END OF REPORT
