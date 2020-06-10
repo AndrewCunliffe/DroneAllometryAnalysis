@@ -21,7 +21,7 @@ library(ggpubr)                                                                 
 # devtools::install_github("valentinitnelav/plotbiomes") # because the plotbiomes package wasn't yet avaialble for R 3.6.1                                                           # Whittaker biomes for climate space plot
 library(plotbiomes)                                                             # Whittaker biomes for climate space plot
 library(lme4)                                                                   # For linear mixed effects models.
-# library(lmerTest)                                                               # For extracting p values from linear mixed effects models (but can sometimes conflict with other packages, so use carfeully and be aware of errors!).
+# library(lmerTest)                                                               # For extracting p values from linear mixed effects models (but can sometimes conflict with other packages, so use carefully and be aware of errors!).
 library(ggeffects)                                                              # For plotting mixed effects models.
 library(sjPlot)                                                                 # For plotting mixed effects models.
 library(cvTools)                                                                # USed for cross-validation of models
@@ -35,6 +35,8 @@ library(MuMIn)                                                                  
 library(broom.mixed)                                                            # For GLMM
 library(performance)                                                            # Evaluating mixed effects model
 library(see)                                                                    # Evaluating mixed effects model
+library(MuMIn)  # for calculating marginal and conditional fixed effects.
+
 
 
 ###*************************************************
@@ -55,17 +57,25 @@ df_peak <- df %>%
   filter(!is.na(AGB_g_m2) & !is.na(HAG_plotmean_of_cellmax_m))                  # Filter for observations with both HAG and AGB values.
 
 
-# Subset dataframe for analysis of wind influence
-df_for_wind <- df %>%
-  filter(PeakBiomass == TRUE) %>%                                               # Subset observations from peak biomass.
-  filter(!is.na(AGB_g_m2) & !is.na(HAG_plotmean_of_cellmax_m)) %>%              # Filter for observations with both HAG and AGB values.
-  # filter(!plant_functional_type %in% c("Bryophyte", "Succulent", "Fern")) %>%   # Remove invalid Bryophyte, Fern because there's only a single sample, and Succulent observations so that models will converge.
-  filter(!plant_functional_type %in% c("Bryophyte", "Succulent")) %>%           # Remove invalid Bryophyte, and Succulent observations so that models will converge.
-  filter(!binomial_species %in% c("Mixed grasses", "Unknown spp."))             # Remove unwanted 'species'.
+# # Subset dataframe for analysis of wind influence
+# df_for_wind <- df %>%
+#   filter(PeakBiomass == TRUE) %>%                                               # Subset observations from peak biomass.
+#   filter(!is.na(AGB_g_m2) & !is.na(HAG_plotmean_of_cellmax_m)) %>%              # Filter for observations with both HAG and AGB values.
+#   filter(!plant_functional_type %in% c("Bryophyte", "Succulent")) %>%           # Remove invalid Bryophyte, and Succulent observations so that models will converge.
+#   filter(!binomial_species %in% c("Mixed grasses", "Unknown spp."))             # Remove unwanted 'species'.
 
+# Subset dataframe for analysis of sun influence
+# df_for_sun <- df %>%
+#   filter(PeakBiomass == TRUE) %>%                                               # Subset observations from peak biomass.
+#   filter(!is.na(AGB_g_m2) & !is.na(HAG_plotmean_of_cellmax_m)) %>%              # Filter for observations with both HAG and AGB values.
+#   filter(sky_conditions_code <= 4) %>%                                          # Filter observations collected under clear sky conditions.
+#   filter(!plant_functional_type %in% c("Bryophyte")) %>%                        # Remove invalid bryophyte observations.
+#   # filter(plant_functional_type %in% c("Shrub", "Graminoid")) %>%               # Retain only well sampled shrub and graminois PFT.
+#   group_by(binomial_species) %>%
+#   filter(n() >= min_obs)                                                        # Filter by threshold number of observations
 
-
-df_survey <- df %>%                                                             # Subset df with unique information for each survey for reporting in supplementary.
+# Subset df with unique information for each survey for reporting in supplementary.
+df_survey <- df %>%
   select(survey_code,
          Investigators,
          SiteName,
@@ -967,199 +977,116 @@ df %>%
 ## (ii) solar elevation on the relationship between mean canopy height and
 ## aboveground biomass, to better to understand how sensitive these
 ## photogrammetric approaches are to these envrionmental parameters.
-### 6.1 Modelling influence ----
-## Test whether wind speed had a significant interaction effect on the
-## relationship between mean canopy height and biomass. The null hypotheses is
-## that wind speed has no effect on the relationship between height and biomass.
-## With the current dataset we are unable to control for differences in
-## ecophenotypic variation (due to site conditions) or phenophase (due to
-## antecedent conditions). However, we do expect sensitivity to wind speed will
-## differ between taxanomic groups based largely on growth form, and we can
-## account for this by treating plant functial type as a random effect.
-
-## Fit generalised linear mixed effects models to test wind speed as a fixed
-## (continuous) effect to test whether it is important and whether there is an
-## interaction with height. ## This model predicts biomass as a function of
-## canopy height interacting with wind speed, with PFT included as a random
-## effect to remove variation among taxanomic groups from the overall model
-## result, to test the effects of canopy height and wind speed in isolation
-## from PFT effects we don't have enough replication to also treat site as a
-## random effect.
-
-## Testing assumptions of normally distribution and are heteroscedasticity:
-## so need to be modelled with non-parametirc tests.
-# Density plot
-ggdensity(df_for_wind$AGB_g_m2, fill = "lightgray")
-
-# QQ plot
-ggqqplot(df_for_wind$AGB_g_m2)
-
-#Shapiro_Wilk W Test of normality
-shapiro.test(df_for_wind$AGB_g_m2)
-# Plots and shapiro test indicate non-normal distribution -> i.e., need to be tranformed prior to analysis or we need to use nonparametric stats
-
-
-### Generalised Linear Mixed Model (GLMM) nonparametric test
-# Wind speed
-wind_glmm <-lme4::glmer(AGB_g_m2 ~  HAG_plotmean_of_cellmax_m * wind_speed + (1|plant_functional_type), # Specify fixed and random effects
-                        data = df_for_wind,
-                        family = Gamma(link = "identity"))
-
-performance::check_model(wind_glmm)  # Evaluate model performence
-
-summary(wind_glmm)  # See model summary
-
-Anova(wind_glmm)  # Analysis of Deviance  (Type II Wald chisquare tests)
-
-
-
-
-# Subset dataframe for analysis of sun influence
-df_for_sun <- df %>%
+### 6.1 Subset data and reanalyse for wind and influence testing ----
+# Subset dataframe for analysis of wind influence
+df_for_influence <- df %>%
   filter(PeakBiomass == TRUE) %>%                                               # Subset observations from peak biomass.
   filter(!is.na(AGB_g_m2) & !is.na(HAG_plotmean_of_cellmax_m)) %>%              # Filter for observations with both HAG and AGB values.
-  filter(sky_conditions_code == 0) %>%                                          # Filter observations collected under clear sky conditions.
-  filter(HAG_plotmean_of_cellmax_m > 0.2) %>%                                  # Filter observations to only retain those with canopy heights above X
-  filter(!plant_functional_type %in% c("Bryophyte")) %>%                        # Remove invalid bryophyte observations.
-  group_by(binomial_species) %>%
-  filter(n() >= min_obs)                                                        # Filter by threshold number of observations
+  filter(!plant_functional_type %in% c("Bryophyte")) %>%                        # Remove invalid Bryophyte, and Succulent observations so that models will converge.
+  filter(!binomial_species %in% c("Mixed grasses", "Unknown spp."))             # Remove unwanted 'species'.
 
-
-sun_glmm <-lme4::glmer(AGB_g_m2 ~  HAG_plotmean_of_cellmax_m * solar_elevation + (1|plant_functional_type), #specify fixed and random effects
-                       data = df_for_sun,
-                       family = Gamma(link = "identity"))
-
-performance::check_model(sun_glmm)  # Evaluate model performence
-
-summary(sun_glmm)  # See model summary
-
-Anova(sun_glmm)  # Analysis of Deviance  (Type II Wald chisquare tests)
-
-
-# Tabulate interaction model parameters for reporting
-# NB. I haven't quite got this working yet,
-# Compile model objects
-# models <- list(wind_glmm, sun_glmm)
-
-# model_results <- bind_rows(lapply(models, function(model) {
-#   model_glance <- broom::glance(model)
-#   model_tidy <- broom::tidy(model)
-#   return(
-#     data.frame(
-#       # dependent_variable = as.character(formula(model)[2]),
-#       # NDVI_Grain_m = gsub("mean_NDVI_", "0\\.", model_tidy$term[2]),
-#       # Term = model_tidy$term,
-#       # estimate = round(model_tidy$estimate, 2),
-#       # Std_error = round(model_tidy$std.error, 2),
-#       # Statistic = round(model_tidy$statistic, 3),
-#       P_value = round(model_tidy$p.value, 3),
-#       stringsAsFactors = F
-#     )
-#   )
-# }))
-# #
-# # # Export model parameters to table
-# # write.csv(model_results, "outputs/5_interaction_effects/Table S3 interaction model parameters.csv", row.names = F)
-
-
-
-
-
-### 6.2 Extract dataframe for influence testing ----
 
 ### Extract model paraemters for different species
-    {
-      # Create empty dataframe to be populated for each sample
-      df_influence_wind <- data.frame(plant_functional_type = character(),
-                            order = character(),
-                            family = character(),
-                            species = character(),
-                            species_short = character(),
-                            observations = integer(),
-                            lm_slope = double(),
-                            lm_slope_error = double(),
-                            lm_r2 = double(),
-                            lm_p = double(),
-                            survey_code = character(),
-                            site_code = character(),
-                            wind_speed = double(),
-                            solar_elevation = double(),
-                            sky_conditions_code = double(),
-                            stringsAsFactors=FALSE
-                            )
+{
+  # Create empty dataframe to be populated for each sample
+  df_influence_summary <- data.frame(plant_functional_type = character(),
+                                     order = character(),
+                                     family = character(),
+                                     species = character(),
+                                     species_short = character(),
+                                     observations = integer(),
+                                     lm_slope = double(),
+                                     lm_slope_error = double(),
+                                     lm_r2 = double(),
+                                     lm_p = double(),
+                                     survey_code = character(),
+                                     site_code = character(),
+                                     wind_speed = double(),
+                                     solar_elevation = double(),
+                                     sky_conditions_code = double(),
+                                     stringsAsFactors=FALSE
+  )
 
-    ### Extract models for each sample of each species
-      # List unique species
-      survey_l <- sort(unique(df_peak_filt$survey_code))
+  ### Extract models for each sample of each species
+  # List unique species
+  survey_l <- sort(unique(df_for_influence$survey_code))
 
-      # Derive model parameters for species
-      for(j in survey_l){
-        survey_dat <- filter(df_peak_filt, survey_code == j)                   # Subset data by survey code.
-        species_l <- sort(unique(survey_dat$binomial_species))                 # List species present in survey.
-        for(s in species_l){
-          species_dat <- filter(survey_dat, binomial_species == s)             # Subset data by survey code.
+  # Derive model parameters for species
+  for(j in survey_l){
+    survey_dat <- filter(df_for_influence, survey_code == j)                   # Subset data by survey code.
+    species_l <- sort(unique(survey_dat$binomial_species))                 # List species present in survey.
+    for(s in species_l){
+      species_dat <- filter(survey_dat, binomial_species == s)             # Subset data by survey code.
 
-          if(nrow(species_dat) < min_obs){next}                                 # skip species if there are insufficient observations.
+      if(nrow(species_dat) < min_obs){next}                                 # skip species if there are insufficient observations.
 
-          x <- species_dat$HAG_plotmean_of_cellmax_m
-          y <- species_dat$AGB_g_m2
+      x <- species_dat$HAG_plotmean_of_cellmax_m
+      y <- species_dat$AGB_g_m2
 
-          # Fit models
-          model_lm <- lm(y ~ x + 0, na.action=na.exclude)
-          sum_lm <- summary(model_lm)
+      # Fit models
+      model_lm <- lm(y ~ x + 0, na.action=na.exclude)
+      sum_lm <- summary(model_lm)
 
-          # Extract parameters as new list
-          species_info <- c(plant_functional_type = as.character(unique(species_dat$plant_functional_type)),
-                            order = as.character(unique(species_dat$plot_order)),
-                            family = as.character(unique(species_dat$plot_family)),
-                            species = as.character(unique(species_dat$binomial_species)),
-                            species_short = as.character(unique(species_dat$species_short)),
-                            observations = min(length(species_dat$AGB_g_m2),length(species_dat$HAG_plotmean_of_cellmax_m)),
-                            lm_slope = trunc(sum_lm$coefficients[1]),
-                            lm_slope_error = trunc(sum_lm$coefficients[2]),
-                            lm_r2 = round(sum_lm$r.squared, 2),
-                            lm_p = round(sum_lm$coefficients[4],4),
-                            survey_code = (unique(species_dat$survey_code)),
-                            site_code = (unique(species_dat$site_code)),
-                            wind_speed = as.character(unique(species_dat$wind_speed)),
-                            solar_elevation = as.character(unique(species_dat$solar_elevation)),
-                            sky_conditions_code = as.character(unique(species_dat$sky_conditions_code))
-                            )
+      # Extract parameters as new list
+      sample_info <- c(plant_functional_type = as.character(unique(species_dat$plant_functional_type)),
+                        order = as.character(unique(species_dat$plot_order)),
+                        family = as.character(unique(species_dat$plot_family)),
+                        species = as.character(unique(species_dat$binomial_species)),
+                        species_short = as.character(unique(species_dat$species_short)),
+                        observations = min(length(species_dat$AGB_g_m2),length(species_dat$HAG_plotmean_of_cellmax_m)),
+                        lm_slope = trunc(sum_lm$coefficients[1]),
+                        lm_slope_error = trunc(sum_lm$coefficients[2]),
+                        lm_r2 = round(sum_lm$r.squared, 2),
+                        lm_p = round(sum_lm$coefficients[4],4),
+                        survey_code = (unique(species_dat$survey_code)),
+                        site_code = (unique(species_dat$site_code)),
+                        wind_speed = as.character(unique(species_dat$wind_speed)),
+                        solar_elevation = as.character(unique(species_dat$solar_elevation)),
+                        sky_conditions_code = as.character(unique(species_dat$sky_conditions_code))
+      )
 
-          # Convert list into dataframe.
-          species_info <- data.frame(lapply(species_info, type.convert), stringsAsFactors=FALSE)
+      # # Convert list into dataframe.
+      sample_info <- data.frame(lapply(sample_info, type.convert), stringsAsFactors=FALSE)
 
-          # Append new row to summary table.
-          df_influence_wind <- rbind(df_influence_wind, species_info)
+      # Append new row to summary table.
+      df_influence_summary <- rbind(df_influence_summary, sample_info)
 
-          # Order species_summary_table alphabetically by plant functional group, order, family and binomial species. NB. tolower deals with case issues.
-          df_influence_wind <- df_influence_wind[order(tolower(df_influence_wind$plant_functional_type),
-                                             tolower(df_influence_wind$order),
-                                             tolower(df_influence_wind$family),
-                                             tolower(df_influence_wind$species)
-                                             ),]
-        }
-      }
+      # Order species_summary_table alphabetically by plant functional group, order, family and binomial species. NB. tolower deals with case issues.
+      df_influence_summary <- df_influence_summary[order(tolower(df_influence_summary$plant_functional_type),
+                                                   tolower(df_influence_summary$order),
+                                                   tolower(df_influence_summary$family),
+                                                   tolower(df_influence_summary$species)
+      ),]
+    }
+  }
 
-      # Tidy up environment
-      rm(survey_l,
-         species_l,
-         survey_dat,
-         species_info)
+  # Tidy up environment
+  rm(survey_l,
+     species_l,
+     survey_dat,
+     sample_info)
 
-      # Filtering to subset only species with multiple samples
-      df_influence_wind_filt <- df_influence_wind %>%
-        group_by(species) %>%
-        add_count(n_distinct(survey_code)) %>%
-        filter(n>1)
+  # Subset species sampled multiple times
+  df_influence_summary_multiple <- df_influence_summary %>%
+    group_by(species) %>%
+    add_count(n_distinct(survey_code)) %>%
+    filter(n>1)
 
-      # Compute the number of species sampled more then once
-      n_of_species_in_df_influence_wind <- length(unique(df_influence_wind_filt$species))
-      print(n_of_species_in_df_influence_wind)
-      }
+  # Subset samples for wind
+  df_influence_summary_wind <- df_influence_summary
+
+  # Subset samples by sky code
+  df_influence_summary_sun <- df_influence_summary %>%
+      filter(sky_conditions_code <= 4)                                          # Filter observations collected under clear sky conditions.
 
 
-## Calculate rough estimate of the average affect of wind speed on allometric functions
+  # # Compute the number of species sampled more then once
+  n_of_species_in_df_influence_wind <- length(unique(df_influence_summary_multiple$species))
+  print(n_of_species_in_df_influence_wind)
+}
+
+
+### Calculate estimate of the average affect of wind speed on allometric functions ###
 ## Also used to order the faccet plot below!
 {
   # Create empty dataframe to be populated
@@ -1170,11 +1097,11 @@ Anova(sun_glmm)  # Analysis of Deviance  (Type II Wald chisquare tests)
   )
 
   # List unique species
-  species_l <- sort(unique(df_influence_wind_filt$species))
+  species_l <- sort(unique(df_influence_summary_multiple$species))
 
-  # Derive model parameters for species
+  # Derive model parameters for each species
   for(s in species_l){
-    species_dat <- filter(df_influence_wind_filt, species == s)
+    species_dat <- filter(df_influence_summary_multiple, species == s)
 
     x <- species_dat$wind_speed
     y <- species_dat$lm_slope
@@ -1204,10 +1131,12 @@ median(df_influence_wind_slope$slope)
 mean(df_influence_wind_slope$slope)
 
 
+
+### 6.2 Visualising wind and sun influence ----
 ## Review distribution of envrionmental parameters
 # Create histrogram of wind speeds
 {
-  (wind_histogram <- ggplot(df_peak_ex_bryo, aes(x=wind_speed)) +
+  (wind_histogram <- ggplot(df_for_influence, aes(x=wind_speed)) +
      geom_histogram(binwidth=1) +
      labs(x = expression("Wind Speed (m s"^"-2"*")"),
           y = expression("Count of Harvest Plots"),
@@ -1235,68 +1164,47 @@ mean(df_influence_wind_slope$slope)
 }
 
 
+## Create histrogram of solar elevation
+(solar_elevation_histogram <- ggplot(df_for_influence, aes(x=solar_elevation)) +
+    geom_histogram(binwidth=5) +
+    labs(x = expression("Solar Elevation (°)"),
+         y = expression("Count of Harvest Plots"),
+         title = expression("Histogram of solar elevations")) +
+    theme_plots())
+
+png("outputs/5_interaction_effects/Histogram of solar elevations.png",
+    width = 10, height = 10, units = 'cm', res = 500)                     # Save plot
+plot(solar_elevation_histogram)
+dev.off()
+
+# plot solar elevation against sky conditions
+(solar_elevation_vs_sky <- ggplot(df_for_influence, aes(x=solar_elevation, y=sky_conditions_code)) +
+    geom_point() +
+    labs(x = expression("Solar Elevation (°)"),
+         y = expression("Sky code (were 0 = clear)")) +
+    theme_plots())
+
+png("outputs/5_interaction_effects/Sun elevation vs sky conditions.png",
+    width = 10, height = 10, units = 'cm', res = 500)     # Save plot
+plot(solar_elevation_vs_sky)
+dev.off()
 
 
 
-### 6.3 Visualising interaction effects ----
 # Set scaling parameters
 max_wind <- 10
 max_slope <- 15000
-max_sun <-  round(max(df_influence_wind_filt$solar_elevation),-1)
-min_sun <-  round(min(df_influence_wind_filt$solar_elevation),-1)
+max_sun <-  round(max(df_influence_summary_multiple$solar_elevation),-1)
+min_sun <-  round(min(df_influence_summary_multiple$solar_elevation),-1)
 annotation_size <- 1.5
 
-## Visualise overall wind interaction
-legend_loc <- c(0.25, 0.9)
-legend_title <- expression("Wind speed (m s" ^ "-2" * ")")
-
-wind_levels <- "wind_speed[1, 3, 5]"  # set levels
-
-predictions <- ggpredict(model_wind, terms = c("HAG_plotmean_of_cellmax_m", wind_levels))
-
-{
-  (interaction_plot <- ggplot() +
-      geom_line(
-        data = predictions,
-        aes(x = x, y = predicted, colour = group),
-        size = 1) +
-      geom_ribbon(data = predictions,
-                  aes(x = x,
-                      ymin = conf.low,
-                      ymax = conf.high,
-                      fill = group),
-                  alpha = 0.2) +
-      theme_plots() +
-      theme(legend.title = element_text(size = 8),
-            legend.text = element_text(size = 6, face = "italic"),
-            legend.key.size = unit(0.9, "line"),
-            legend.background = element_rect(color = "black",
-                                             fill = "transparent", size = 4,
-                                             linetype = "blank"),
-            legend.position = legend_loc) +
-      labs(x = "mean canopy height above ground (m)",
-           y = expression("Aboveground biomass (g m" ^ "-2" * ")"),
-           fill = "Wind speed", colour = "Wind speed") +
-      scale_colour_viridis_d(legend_title, option = "magma", direction = 1, end = 0.8) +
-      scale_fill_viridis_d(legend_title, option = "magma", direction = 1, end = 0.8)
-    )
-
-  ggsave(interaction_plot,
-         filename = "outputs/5_interaction_effects/wind_interaction.png",
-         width = 12,
-         height = 10,
-         units = "cm")
-}
 
 
 
-
-
-### Old plots ###
 ### Visualise wind influence per-species
 {
   # Ceate wind plot with species annotations
-  (wind.plot <- ggplot(data = df_influence_wind_filt,
+  (wind.plot <- ggplot(data = df_influence_summary_multiple,
                        aes(x = wind_speed,
                            y = lm_slope,
                            label = species,
@@ -1328,7 +1236,7 @@ predictions <- ggpredict(model_wind, terms = c("HAG_plotmean_of_cellmax_m", wind
      annotate("text", fontface=3, size = annotation_size, colour = col_shrub, x = 4.8, y = 9950, label = "L. tridentata") +
      annotate("text", fontface=3, size = annotation_size, colour = col_succulent, x = 7.74, y = 11800, label = "Y. glauca") +
      theme(legend.position = c(0.25, 0.95))
-     )
+  )
 
   ggsave(wind.plot,
          filename = "outputs/5_interaction_effects/wind interaction with slopes.png",
@@ -1338,43 +1246,48 @@ predictions <- ggpredict(model_wind, terms = c("HAG_plotmean_of_cellmax_m", wind
 
 
 
-  # Ceate wind plot without species annotations
-  (wind.plot2 <- ggplot(data = df_influence_wind_filt,
-                       aes(x = wind_speed,
-                           y = lm_slope,
-                           label = species,
-                           colour = plant_functional_type,
-                           shape = plant_functional_type)) +
-      # geom_point(alpha = 0.7, na.rm = TRUE) +
-      # geom_errorbar(aes(ymin=lm_slope-lm_slope_error, ymax=lm_slope+lm_slope_error), width=0.05) +
-      scale_colour_manual(values = c(col_shrub, col_graminoid, col_succulent)) +
-      scale_shape_manual(values = pft_shapes) +
-      labs(x = expression("Wind Speed (m s"^"-1"*")"),
-           y = expression("Allometric Model Slope (g m"^"-3"*")")) +
-      theme_plots() +
-      theme(legend.title = element_blank()) +
-      coord_cartesian(ylim = c(0, max_slope), xlim = c(0, max_wind), expand=FALSE) +
-      geom_smooth(method=lm,
-                  formula= y ~ x,
-                  aes(group=species),
-                  se=FALSE, size=1.0, na.rm = TRUE, alpha=0.3) +
-      theme(legend.position = c(0.25, 0.95))
-  )
-  ggsave(wind.plot2,
-         filename = "outputs/5_interaction_effects/wind interaction with slopes unlabelled.png",
-         width = 8,
-         height = 8,
-         units = "cm")
+  ## Ceate wind plot without species annotations
+  ## Not used
+  # (wind.plot2 <- ggplot(data = df_influence_summary_multiple,
+  #                       aes(x = wind_speed,
+  #                           y = lm_slope,
+  #                           label = species,
+  #                           colour = plant_functional_type,
+  #                           shape = plant_functional_type)) +
+  #     # geom_point(alpha = 0.7, na.rm = TRUE) +
+  #     # geom_errorbar(aes(ymin=lm_slope-lm_slope_error, ymax=lm_slope+lm_slope_error), width=0.05) +
+  #     scale_colour_manual(values = c(col_shrub, col_graminoid, col_succulent)) +
+  #     scale_shape_manual(values = pft_shapes) +
+  #     labs(x = expression("Wind Speed (m s"^"-1"*")"),
+  #          y = expression("Allometric Model Slope (g m"^"-3"*")")) +
+  #     theme_plots() +
+  #     theme(legend.title = element_blank()) +
+  #     coord_cartesian(ylim = c(0, max_slope), xlim = c(0, max_wind), expand=FALSE) +
+  #     geom_smooth(method=lm,
+  #                 formula= y ~ x,
+  #                 aes(group=species),
+  #                 se=FALSE, size=1.0, na.rm = TRUE, alpha=0.3) +
+  #     theme(legend.position = c(0.25, 0.95))
+  # )
+  #
+  # ggsave(wind.plot2,
+  #        filename = "outputs/5_interaction_effects/wind interaction with slopes unlabelled.png",
+  #        width = 8,
+  #        height = 8,
+  #        units = "cm")
+
+
 
 
   ### Create multi-panel wind interaction plot
+  # Used for supplementary figure
   # Specify the levels of the factors (species) to control plot order.
   ordered_factors <- df_influence_wind_slope$species_short
 
-  df_influence_wind_filt$species_short <- factor(df_influence_wind_filt$species_short,
+  df_influence_summary_multiple$species_short <- factor(df_influence_summary_multiple$species_short,
                                                  levels = ordered_factors)
 
-  (wind.plot3 <- ggplot(data = df_influence_wind_filt,
+  (wind.plot3 <- ggplot(data = df_influence_summary_multiple,
                         aes(x = wind_speed,
                             y = lm_slope,
                             colour = plant_functional_type,
@@ -1410,223 +1323,269 @@ predictions <- ggpredict(model_wind, terms = c("HAG_plotmean_of_cellmax_m", wind
 
 
 
-    ### visualise influence of sun elevation
-    # Create histrogram of solar elevation
-    (solar_elevation_histogram <- ggplot(df_peak_ex_bryo, aes(x=solar_elevation)) +
-        geom_histogram(binwidth=5) +
-        labs(x = expression("Solar Elevation (°)"),
-             y = expression("Count of Harvest Plots"),
-             title = expression("Histogram of solar elevations")) +
-        theme_plots())
-
-    png("outputs/5_interaction_effects/Histogram of solar elevations.png",
-        width = 10, height = 10, units = 'cm', res = 500)                     # Save plot
-    plot(solar_elevation_histogram)
-    dev.off()
-
-    # plot solar elevation against sky conditions
-    (solar_elevation_vs_sky <- ggplot(df_peak_ex_bryo, aes(x=solar_elevation, y=sky_conditions_code)) +
-        geom_point() +
-        labs(x = expression("Solar Elevation (°)"),
-             y = expression("Sky code (0 = clear)")) +
-        theme_plots())
-
-    png("outputs/5_interaction_effects/Sun elevation vs sky conditions.png",
-        width = 10, height = 10, units = 'cm', res = 500)     # Save plot
-    plot(solar_elevation_vs_sky)
-    dev.off()
-
-
-    ## Filter dataframe to more than one sample with clear sky codes ('0')
-    df_influence_sun <- df_influence_wind_filt %>%
-      filter(sky_conditions_code == 0) %>%                                    # Filter by sky conditions
-      group_by(species) %>%                                                   # Group by species.
-      add_count(n_distinct(survey_code)) %>%                                 # Count number of survey codes per (species) group.
-      filter(n>1) %>%                                                         # Filter to more than one sample
-      select(-c('n_distinct(survey_code)'))                                  # Drop old, now incorrect, column.
-
-    ## create plot with data points
-    (sun.plot <- ggplot(data = df_influence_sun,
-                        aes(x = solar_elevation,
-                            y = lm_slope,
-                            label = species,
-                            colour = plant_functional_type,
-                            shape = plant_functional_type)) +
-        geom_point(alpha = 0.7, na.rm = TRUE) +
-        geom_errorbar(aes(ymin=lm_slope-lm_slope_error, ymax=lm_slope+lm_slope_error), width=0.05) +
-        scale_colour_manual(values = c(col_shrub, col_graminoid)) +
-        scale_shape_manual(values = pft_shapes) +
-        labs(x = expression("Sun Elevation (°)"),
-             y = expression("Allometric Model Slope (g m"^"-3"*")")) +
-        theme_plots() +
-        theme(legend.title = element_blank()) +
-        coord_cartesian(ylim = c(0, max_slope), xlim = c(min_sun, max_sun), expand=FALSE) +
-        geom_smooth(method=lm,
-                    formula= y ~ x,
-                    aes(group=species),
-                    se=FALSE, size=1.0, na.rm = TRUE, alpha=0.3) +
-        theme(legend.position = c(0.25, 0.95))
-    )
-
-    ## create plot without data points
-    (sun.plot2 <- ggplot(data = df_influence_sun,
-                        aes(x = solar_elevation,
-                            y = lm_slope,
-                            label = species,
-                            colour = plant_functional_type,
-                            shape = plant_functional_type)) +
-        scale_colour_manual(values = c(col_shrub, col_graminoid)) +
-        scale_shape_manual(values = pft_shapes) +
-        labs(x = expression("Sun Elevation (°)"),
-             y = expression("Allometric Model Slope (g m"^"-3"*")")) +
-        theme_plots() +
-        theme(legend.title = element_blank()) +
-        coord_cartesian(ylim = c(0, max_slope), xlim = c(min_sun, max_sun), expand=FALSE) +
-        geom_smooth(method=lm,
-                    formula= y ~ x,
-                    aes(group=species),
-                    se=FALSE, size=1.0, na.rm = TRUE, alpha=0.3) +
-        theme(legend.position = c(0.25, 0.95))
-    )
-
-    # Export figure
-    png("outputs/5_interaction_effects/Interaction sun elevation and model slopes.png",
-        width = 8, height = 8, units = 'cm', res = 500)     # Save plot
-    plot(sun.plot)
-    dev.off()
-
-
-### Create old Figure 3
-## Combine plots with patchwork
-(Interactions <- wind.plot2 + sun.plot2 +
-    plot_annotation(tag_levels = 'A') &
-    theme(plot.tag.position = c(0.0, 0.97))  # Control horizontal and vertical position of panel labels
-)
-
-# Export figure
-png("outputs/Figure_3/Figure 3 - Interactions.png", width = 16, height = 8, units = 'cm', res = 500)     # Save plot
-plot(Interactions)
-dev.off()
-
-
-
-
-### 6.4 Illustrating wind influence at the PFT-level ----
-### Extract model paraemters for different species
-{
-  # Create empty dataframe to be populated for each sample
-  df_influence_wind_PFT <- data.frame(plant_functional_type = character(),
-                                      order = character(),
-                                      family = character(),
-                                      species = character(),
-                                      species_short = character(),
-                                      observations = integer(),
-                                      lm_slope = double(),
-                                      lm_slope_error = double(),
-                                      lm_r2 = double(),
-                                      lm_p = double(),
-                                      survey_code = character(),
-                                      site_code = character(),
-                                      wind_speed = double(),
-                                      solar_elevation = double(),
-                                      sky_conditions_code = double(),
-                                      stringsAsFactors=FALSE
-                                      )
-
-  ### Extract models for each sample of each species
-  # List unique species
-  survey_l <- sort(unique(df_for_wind$survey_code))
-
-  # Derive model parameters for species
-  for(j in survey_l){
-    survey_dat <- filter(df_for_wind, survey_code == j)                         # Subset data by survey code.
-    species_l <- sort(unique(df_for_wind$binomial_species))                     # List species present in survey.
-    for(s in species_l){
-      species_dat <- filter(survey_dat, binomial_species == s)                  # Subset data by survey code.
-
-      if(nrow(species_dat) < min_obs){next}                                     # skip species if there are insufficient observations.
-
-      x <- species_dat$HAG_plotmean_of_cellmax_m
-      y <- species_dat$AGB_g_m2
-
-      # Fit models
-      model_lm <- lm(y ~ x + 0, na.action=na.exclude)
-      sum_lm <- summary(model_lm)
-
-      # Extract parameters as new list
-      species_info <- c(plant_functional_type = as.character(unique(species_dat$plant_functional_type)),
-                        order = as.character(unique(species_dat$plot_order)),
-                        family = as.character(unique(species_dat$plot_family)),
-                        species = as.character(unique(species_dat$binomial_species)),
-                        species_short = as.character(unique(species_dat$species_short)),
-                        observations = min(length(species_dat$AGB_g_m2),length(species_dat$HAG_plotmean_of_cellmax_m)),
-                        lm_slope = trunc(sum_lm$coefficients[1]),
-                        lm_slope_error = trunc(sum_lm$coefficients[2]),
-                        lm_r2 = round(sum_lm$r.squared, 2),
-                        lm_p = round(sum_lm$coefficients[4],4),
-                        survey_code = (unique(species_dat$survey_code)),
-                        site_code = (unique(species_dat$site_code)),
-                        wind_speed = as.character(unique(species_dat$wind_speed)),
-                        solar_elevation = as.character(unique(species_dat$solar_elevation)),
-                        sky_conditions_code = as.character(unique(species_dat$sky_conditions_code))
-      )
-
-      # Convert list into dataframe.
-      species_info <- data.frame(lapply(species_info, type.convert), stringsAsFactors=FALSE)
-
-      # Append new row to summary table.
-      df_influence_wind_PFT <- rbind(df_influence_wind_PFT, species_info)
-
-      # Order species_summary_table alphabetically by plant functional group, order, family and binomial species. NB. tolower deals with case issues.
-      df_influence_wind_PFT <- df_influence_wind_PFT[order(tolower(df_influence_wind_PFT$plant_functional_type),
-                                                   tolower(df_influence_wind_PFT$order),
-                                                   tolower(df_influence_wind_PFT$family),
-                                                   tolower(df_influence_wind_PFT$species)
-      ),]
-    }
-  }
-
-  # Tidy up environment
-  rm(survey_l,
-     species_l,
-     survey_dat,
-     species_info)
-
-}
-
 
 ### Ceate wind influence plot at PFT-level
 {
-  (wind.plot.pft <- ggplot(data = df_influence_wind_PFT,
-                      aes(x = wind_speed,
-                          y = lm_slope,
-                          colour = plant_functional_type,
-                          shape = plant_functional_type)) +
-    geom_point(alpha = 0.5, na.rm = TRUE) +
-    geom_errorbar(alpha = 0.5, aes(ymin=lm_slope-lm_slope_error, ymax=lm_slope+lm_slope_error), width=0.05) +
-    scale_colour_manual(values = c(col_shrub, col_graminoid, col_fern, col_forb, col_tree)) +
-    scale_shape_manual(values = pft_shapes) +
-    labs(x = expression("Wind Speed (m s"^"-1"*")"),
-         y = expression("Allometric Model Slope (g m"^"-3"*")")) +
-    theme_plots() +
-    theme(legend.title = element_blank()) +
-    coord_cartesian(ylim = c(0, 15000), xlim = c(0, 8), expand=FALSE) +
-    geom_smooth(method=lm,
-                formula= y ~ x,
-                aes(group=plant_functional_type),
-                se=FALSE, size=1.0, na.rm = TRUE, alpha=0.3) +
-    theme(legend.position = c(0.17, 0.88))
-)
+  (wind.plot.pft <- ggplot(data = df_influence_summary_wind,
+                           aes(x = wind_speed,
+                               y = lm_slope,
+                               colour = plant_functional_type,
+                               shape = plant_functional_type)) +
+     geom_point(alpha = 0.5, na.rm = TRUE) +
+     geom_errorbar(alpha = 0.5, aes(ymin=lm_slope-lm_slope_error, ymax=lm_slope+lm_slope_error), width=0.05) +
+     # scale_colour_manual(values = c(col_shrub, col_graminoid, col_fern, col_forb, col_tree)) +
+     scale_colour_manual(values = c(col_shrub, col_graminoid, col_fern, col_forb, col_succulent, col_tree)) +
+     scale_shape_manual(values = pft_shapes) +
+     labs(x = expression("Wind Speed (m s"^"-1"*")"),
+          y = expression("Density (g m"^"-3"*")")) +
+     theme_plots() +
+     theme(legend.title = element_blank()) +
+     coord_cartesian(ylim = c(0, 15000), xlim = c(0, 8), expand=FALSE) +
+     geom_smooth(method=lm,
+                 formula= y ~ x,
+                 aes(group=plant_functional_type),
+                 se=FALSE, size=1.3, na.rm = TRUE, alpha=0.3) +
+     theme(legend.position = c(0.17, 0.88))
+  )
 
-ggsave(wind.plot.pft,
-       filename = "outputs/Figure_3/Figure 3 - Wind interaction by PFT.png",
-       width = 10,
-       height = 10,
-       units = "cm")
+  ggsave(wind.plot.pft,
+         filename = "outputs/5_interaction_effects/Wind interaction by PFT.png",
+         width = 12,
+         height = 12,
+         units = "cm")
+
+}
+
+
+## Visualise overall wind interaction
+# Not currently used - would need to specify model object first
+# legend_loc <- c(0.25, 0.9)
+# legend_title <- expression("Wind speed (m s" ^ "-2" * ")")
+#
+# wind_levels <- "wind_speed[1, 3, 5]"  # set levels
+
+# predictions <- ggpredict(model_wind, terms = c("HAG_plotmean_of_cellmax_m", wind_levels))
+#
+# {
+#   (interaction_plot <- ggplot() +
+#      geom_line(
+#        data = predictions,
+#        aes(x = x, y = predicted, colour = group),
+#        size = 1) +
+#      geom_ribbon(data = predictions,
+#                  aes(x = x,
+#                      ymin = conf.low,
+#                      ymax = conf.high,
+#                      fill = group),
+#                  alpha = 0.2) +
+#      theme_plots() +
+#      theme(legend.title = element_text(size = 8),
+#            legend.text = element_text(size = 6, face = "italic"),
+#            legend.key.size = unit(0.9, "line"),
+#            legend.background = element_rect(color = "black",
+#                                             fill = "transparent", size = 4,
+#                                             linetype = "blank"),
+#            legend.position = legend_loc) +
+#      labs(x = "mean canopy height above ground (m)",
+#           y = expression("Aboveground biomass (g m" ^ "-2" * ")"),
+#           fill = "Wind speed", colour = "Wind speed") +
+#      scale_colour_viridis_d(legend_title, option = "magma", direction = 1, end = 0.8) +
+#      scale_fill_viridis_d(legend_title, option = "magma", direction = 1, end = 0.8)
+#   )
+#
+#   ggsave(interaction_plot,
+#          filename = "outputs/5_interaction_effects/wind_interaction.png",
+#          width = 12,
+#          height = 10,
+#          units = "cm")
+# }
+
+
+### Ceate sun influence plot at PFT-level
+{
+  (sun.plot.pft <- ggplot(data = df_influence_summary_sun,
+                           aes(x = solar_elevation,
+                               y = lm_slope,
+                               colour = plant_functional_type,
+                               shape = plant_functional_type)) +
+     geom_point(alpha = 0.5, na.rm = TRUE) +
+     geom_errorbar(alpha = 0.5, aes(ymin=lm_slope-lm_slope_error, ymax=lm_slope+lm_slope_error), width=0.05) +
+     scale_colour_manual(values = c(col_shrub, col_graminoid, col_forb, col_succulent, col_tree)) +
+     scale_shape_manual(values = pft_shapes) +
+     labs(x = expression("Sun Elevation (°)"),
+          y = expression("Density (g m"^"-3"*")")) +
+     theme_plots() +
+     theme(legend.title = element_blank()) +
+     coord_cartesian(ylim = c(0, 15000), xlim = c(0, 90), expand=FALSE) +
+     geom_smooth(method=lm,
+                 formula= y ~ x,
+                 aes(group=plant_functional_type),
+                 se=FALSE, size=1.3, na.rm = TRUE, alpha=0.3) +
+     theme(legend.position = c(0.17, 0.88))
+  )
+
+  ggsave(sun.plot.pft,
+         filename = "outputs/5_interaction_effects/Sun interaction by PFT.png",
+         width = 12,
+         height = 12,
+         units = "cm")
+
 }
 
 
 
+
+
+# Combine plots with patchwork
+(
+  Figure_3 <-
+    wind.plot.pft + sun.plot.pft +
+    plot_annotation(tag_levels = 'A')
+)
+
+# Export figure
+ggsave(
+  Figure_3,
+  filename = "outputs/Figure_3/Figure 3 - Wind and sun interaction by PFT.png",
+  width = 22,
+  height = 11,
+  units = "cm"
+)
+
+
+
+
+
+### 6.3 Modelling influence of wind and sun ----
+## Test whether wind speed had a significant interaction effect on the
+## relationship between mean canopy height and biomass. The null hypotheses is
+## that wind speed has no effect on the relationship between height and biomass.
+## With the current dataset we are unable to control for differences in
+## ecophenotypic variation (due to site conditions) or phenophase (due to
+## antecedent conditions). However, we do expect sensitivity to wind speed will
+## differ between taxanomic groups based largely on growth form, and we can
+## account for this by treating plant functial type as a random effect.
+
+## Fit generalised linear mixed effects models to test wind speed as a fixed
+## (continuous) effect to test whether it is important and whether there is an
+## interaction with height. ## This model predicts biomass as a function of
+## canopy height interacting with wind speed, with PFT included as a random
+## effect to remove variation among taxanomic groups from the overall model
+## result, to test the effects of canopy height and wind speed in isolation
+## from PFT effects we don't have enough replication to also treat site as a
+## random effect.
+
+## Testing assumptions of normally distribution and are heteroscedasticity:
+## so need to be modelled with non-parametirc tests.
+# Density plot
+ggdensity(df_for_influence$AGB_g_m2, fill = "lightgray")
+
+# QQ plot
+ggqqplot(df_for_influence$AGB_g_m2)
+
+#Shapiro_Wilk W Test of normality
+shapiro.test(df_for_influence$AGB_g_m2)
+# Plots and shapiro test indicate non-normal distribution -> i.e., either need to be tranformed prior to analysis or we need to use nonparametric stats
+
+
+### Wind speed
+# subset data
+df_for_wind <- df_for_influence %>%
+  filter(!plant_functional_type %in% c("Succulent"))  # Remove Succulent observations so that GLMM will converge.
+
+
+### Generalised Linear Mixed Model (GLMM) nonparametric test
+wind_glmm <-lme4::glmer(AGB_g_m2 ~  HAG_plotmean_of_cellmax_m * wind_speed + (1|plant_functional_type), # Specify fixed and random effects
+                        data = df_for_wind,
+                        family = Gamma(link = "identity"))
+
+performance::check_model(wind_glmm)  # Evaluate model performence
+
+png("outputs/5_interaction_effects/GLMM_diagnostics/wind_glmm diagnostics.png")
+performance::check_model(wind_glmm)  # Evaluate model performence
+dev.off()
+
+
+summary(wind_glmm)  # See model summary
+
+Anova(wind_glmm)  # Analysis of Deviance  (Type II Wald chisquare tests)
+
+MuMIn::r.squaredGLMM(wind_glmm)  # Doesn't work with Gamma(“identity”)
+
+
+
+### sun elevation
+df_for_sun <- df_for_influence %>%
+  filter(sky_conditions_code <= 4)                                              # Filter by sky conditions
+
+# unused filters
+#   group_by(binomial_species) %>%
+#   filter(n() >= min_obs) %>%                                              # Filter by threshold number of observations
+#   ungroup()
+
+
+# This is our 'best model' a mixed effects model (gaussian error dist. with log link function) with solar elevation as an additive effect.
+# Models with solar elevation as an interactive effect would only converge when lower HAG values were removed.
+sun_glmm1 <- lme4::glmer(AGB_g_m2 ~  HAG_plotmean_of_cellmax_m + solar_elevation + (1|plant_functional_type), #specify fixed and random effects
+                         data = df_for_sun,
+                         family = gaussian(link='log'))
+
+#Model Diagnostics - not perfect but pass the sniff test...
+performance::check_model(sun_glmm1)  # Evaluate model performence
+
+png("outputs/5_interaction_effects/GLMM_diagnostics/sun_glmm diagnostics.png")
+performance::check_model(sun_glmm1)  # Evaluate model performence
+dev.off()
+
+summary(sun_glmm1) # Very small negative estimate for Solar slope - and not statistically significant
+
+Anova(sun_glmm1)  # Analysis of Deviance  (Type II Wald chisquare tests)
+
+MuMIn::r.squaredGLMM(sun_glmm1)  # Calcualte marginal (fixed effects only) and conditional (fixed and random effects) R2 values
+
+
+
+
+
+
+### NOTES ###
+# These two models had better diagnostics but would only converge when low values for HAG were removed. There was major change in the outcome
+# depending on the minimum height threshold used, so this approach is not robust and the above was selected.
+#
+# sun_glmmA <- lme4::glmer(AGB_g_m2 ~  HAG_plotmean_of_cellmax_m + solar_elevation + (1|plant_functional_type), #specify fixed and random effects
+#                          data = df_for_sun,
+#                          family = Gamma(link='identity'))
+#
+# sun_glmmB <- lme4::glmer(AGB_g_m2 ~  HAG_plotmean_of_cellmax_m * solar_elevation + (1|plant_functional_type), #specify fixed and random effects
+#                          data = df_for_sun,
+#                          family = Gamma(link='identity'))
+
+
+
+## Tabulate interaction model parameters for reporting
+# NB. I haven't quite got this working yet,
+# Compile model objects
+# models <- list(wind_glmm, sun_glmm)
+
+# model_results <- bind_rows(lapply(models, function(model) {
+#   model_glance <- broom::glance(model)
+#   model_tidy <- broom::tidy(model)
+#   return(
+#     data.frame(
+#       # dependent_variable = as.character(formula(model)[2]),
+#       # NDVI_Grain_m = gsub("mean_NDVI_", "0\\.", model_tidy$term[2]),
+#       # Term = model_tidy$term,
+#       # estimate = round(model_tidy$estimate, 2),
+#       # Std_error = round(model_tidy$std.error, 2),
+#       # Statistic = round(model_tidy$statistic, 3),
+#       P_value = round(model_tidy$p.value, 3),
+#       stringsAsFactors = F
+#     )
+#   )
+# }))
+# #
+# # # Export model parameters to table
+# # write.csv(model_results, "outputs/5_interaction_effects/Table S3 interaction model parameters.csv", row.names = F)
 
 
 

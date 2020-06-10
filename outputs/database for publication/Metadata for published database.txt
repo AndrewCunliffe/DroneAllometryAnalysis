@@ -1,6 +1,6 @@
 Metadata for published database
 Andrew Cunliffe <andrewmcunliffe@gmail.com>
-Generated on 2020-05-04
+Generated on 2020-06-05
 
 ---------------------------------------------------------------------------------
 survey_code = Unique ID code assigned to each drone survey: date code (YYYYMMDD) of the survey followed by investigator initials and a three-letter site code.
@@ -40,7 +40,6 @@ Acknowledgements_Funding = List of funding sources associated with the collectio
 Acknowledgements_Permission = List of entities granting permission for data collection at this location. 
 Acknowledgements_Assistance = List of people who assisted with collecting this dataset. 
 Wind_speed = The typical wind speed observed during this survey. 
-sky_conditions_code = The sky conditions observed during the survey (after Assmann et al., 2018). 
 sky_conditions = The sky conditions observed during the survey (after Assmann et al., 2018). 
 drone_and_sensor = The unmanned aerial system platform and camera sensor used to collect this dataset. 
 CameraShutterType = The type of shutter (global or rolling) used by the camera sensor. 

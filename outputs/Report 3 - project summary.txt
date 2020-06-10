@@ -1,13 +1,13 @@
 Drone Allometry Experiment: Summary Report
 Andrew Cunliffe <andrewmcunliffe@gmail.com>
-Generated on 2020-05-04
+Generated on 2020-06-05
 
 ---------------------------------------------------------------------------------
 For the drone allometry project, focussing on seasonal biomass peaks, we have sampled 741 individual harvest plots, from 36 sites with 38 individual photogrammetric reconstructions
 
 4247.59 kg of aboveground biomass has been measured.
 
-Sampling was undertaken using 8 types of drone/sensor: 3DR Solo & MAPIR Survey 2 RGB camera, 3DR Solo with Ricoh GR II, DJI Mavic Pro Platinum, DJI Phantom 3 Advanced, DJI Phantom 4, DJI Phantom 4 Advanced, DJI Phantom 4 Advanced + (with integrated display/control device), DJI Phantom 4 Pro.
+Sampling was undertaken using 8 types of drone/sensor: 3DR Solo & MAPIR Survey 2 RGB camera, 3DR Solo with Ricoh GR II, DJI Mavic Pro Platinum (FC220 camera), DJI Phantom 3 Advanced (FC300S camera), DJI Phantom 4 (FC330 camera), DJI Phantom 4 Advanced (FC6310 camera), DJI Phantom 4 Pro (FC6310 camera), Tarot 680 Pro hexacopter (Sony alpha6000 camera and Sony SEL 20 mm F2.8 lens).
 
 For the largest taxa (Adenostoma fasciculatum, Adenostoma sparsifolium, Atriplex polycarpa, Ericameria nauseosa, Juniperus monosperma, Launaea arborescens, Pinus edulis and Prosopis velutina), freshly harvested biomass was weighed in the field and representative sub-samples were then dried to determine the moisture content for each partition (Cunliffe et al., 2020).
 
@@ -102,7 +102,7 @@ In total (including samples from non-seasonal biomass peak), we have sampled 880
 Sampling has occurred in 8 IGBP classes.Sampled taxa include 51 species:
 In total 4375.73 kg of dry biomass has been surveyed and then harvested.
 Across all harvest plots and surveys, the mean wind speed was 3.33 m s-1 (ranging from 0.9 to 8.0 m s-1).
-Sampling was undertaken using 8 types of drone/sensor. (3DR Solo & MAPIR Survey 2 RGB camera, 3DR Solo with Ricoh GR II, DJI Mavic Pro Platinum, DJI Phantom 3 Advanced, DJI Phantom 4, DJI Phantom 4 Advanced, DJI Phantom 4 Advanced + (with integrated display/control device), DJI Phantom 4 Pro)
+Sampling was undertaken using 8 types of drone/sensor. (3DR Solo & MAPIR Survey 2 RGB camera, 3DR Solo with Ricoh GR II, DJI Mavic Pro Platinum (FC220 camera), DJI Phantom 3 Advanced (FC300S camera), DJI Phantom 4 (FC330 camera), DJI Phantom 4 Advanced (FC6310 camera), DJI Phantom 4 Pro (FC6310 camera), Tarot 680 Pro hexacopter (Sony alpha6000 camera and Sony SEL 20 mm F2.8 lens))
 
 Sampled taxa include:
 480 shrub plots
