@@ -21,7 +21,6 @@ library(ggpubr)                                                                 
 # devtools::install_github("valentinitnelav/plotbiomes") # because the plotbiomes package wasn't yet avaialble for R 3.6.1                                                           # Whittaker biomes for climate space plot
 library(plotbiomes)                                                             # Whittaker biomes for climate space plot
 library(lme4)                                                                   # For linear mixed effects models.
-# library(lmerTest)                                                               # For extracting p values from linear mixed effects models (but can sometimes conflict with other packages, so use carefully and be aware of errors!).
 library(ggeffects)                                                              # For plotting mixed effects models.
 library(sjPlot)                                                                 # For plotting mixed effects models.
 library(cvTools)                                                                # USed for cross-validation of models
@@ -31,11 +30,10 @@ library(ggfortify)                                                              
 library(broom)                                                                  # For summarising model outputs.
 library(optimx)                                                                 # For GLMM
 library(car)                                                                    # For GLMM
-library(MuMIn)                                                                  # For GLMM
+library(MuMIn)                                                                  # for calculating marginal and conditional fixed effects.
 library(broom.mixed)                                                            # For GLMM
-library(performance)                                                            # Evaluating mixed effects model
-library(see)                                                                    # Evaluating mixed effects model
-library(MuMIn)  # for calculating marginal and conditional fixed effects.
+library(performance)                                                            # Evaluating mixed effects models
+library(see)                                                                    # Evaluating mixed effects models
 
 
 
@@ -739,22 +737,25 @@ df %>%
       (species_plot <- ggplot(data=species_dat,
                               aes(x = HAG_plotmean_of_cellmax_m,
                                   y = AGB_g_m2)) +
-          geom_point(shape=21, na.rm=TRUE, colour="black", fill=pft_colour, alpha=0.5, ) +
-          labs(x = "", # expression("Mean canopy height (m)"),
-               y = "", #expression("Dry biomass (g m"^"-2"*")"),
-               title = paste(species)) +
-          geom_smooth(method=lm,  formula= y ~ x-1, se=FALSE, size=0.5,
-                      na.rm = TRUE, alpha=0.2, colour = "black") +
-          coord_cartesian(xlim = c(0, max(species_dat$HAG_plotmean_of_cellmax_m*1.05)),
-                          ylim = c(0, max(species_dat$HAG_plotmean_of_cellmax_m*1.05*yx_ratio)),
-                          expand=FALSE) +
-          theme_plots() +
-          theme(plot.title = element_text(face="italic", size = 8.5),
-         plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), units = , "cm")) +
-          annotate(geom='text', x = (0.04*max(x)), y = (1*(max(x)* yx_ratio)), size =2.9, label = paste('y =', lm_slope, 'x'), hjust = 0, parse=FALSE) +
+         geom_point(shape=21, na.rm=TRUE, colour="black", fill=pft_colour, alpha=0.5, ) +
+         labs(x = "", # expression("Mean canopy height (m)"),
+              y = "", #expression("Dry biomass (g m"^"-2"*")"),
+              title = paste(species)) +
+         geom_smooth(method=lm,  formula= y ~ x-1, se=FALSE, size=0.5,
+                     na.rm = TRUE, alpha=0.2, colour = "black") +
+         coord_cartesian(xlim = c(0, max(species_dat$HAG_plotmean_of_cellmax_m*1.05)),
+                         ylim = c(0, max(species_dat$HAG_plotmean_of_cellmax_m*1.05*yx_ratio)),
+                         expand=FALSE) +
+         scale_x_continuous(breaks = c(0, round(max(species_dat$HAG_plotmean_of_cellmax_m)/2,2), round(max(species_dat$HAG_plotmean_of_cellmax_m),2)),
+                          limits = c(0, max(species_dat$HAG_plotmean_of_cellmax_m)*1.05)
+                          ) +
+         theme_plots() +
+         theme(plot.title = element_text(face="italic", size = 8.5),
+               plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), units = , "cm")) +
+         annotate(geom='text', x = (0.04*max(x)), y = (1*(max(x)* yx_ratio)), size =2.9, label = paste('y =', lm_slope, 'x'), hjust = 0, parse=FALSE) +
          annotate(geom='text', x = (0.04*max(x)), y = (0.89*(max(x)* yx_ratio)), size =2.9, label = paste('Adj.R^2 == ', round(lm_adjr2, 2)), hjust = 0, parse = TRUE) +
          annotate(geom='text', x = (0.04*max(x)), y = (0.77*(max(x)* yx_ratio)), size =2.9, label = paste('Surveys ==', n_samples), hjust=0, parse = TRUE) +
-          annotate(geom='text', x = (0.04*max(x)), y = (0.67*(max(x)* yx_ratio)), size =2.9, label = paste('n ==', n_obs), hjust=0, parse = TRUE)
+         annotate(geom='text', x = (0.04*max(x)), y = (0.67*(max(x)* yx_ratio)), size =2.9, label = paste('n ==', n_obs), hjust=0, parse = TRUE)
       )
       })
   }
@@ -959,7 +960,7 @@ df %>%
 
     # Combine plots with patchwork
     (PFT_Figure <- PFT_plotlist$Fern + PFT_plotlist$Forb + PFT_plotlist$Graminoid +
-        PFT_plotlist$Shrub + PFT_plotlist$Succulent + PFT_plotlist$Tree)
+        PFT_plotlist$Shrub + PFT_plotlist$Tree + PFT_plotlist$Succulent)
 
     # Export figure
     png("outputs/Figure_2/Figure 2 (from R).png",
@@ -1315,7 +1316,7 @@ annotation_size <- 1.5
          height = 19,
          units = "cm")
   ggsave(wind.plot3,
-         filename = "outputs/Figure_S2_growth_forms/wind interaction by species.png",
+         filename = "outputs/Figure_S3_growth_forms/wind interaction by species.png",
          width = 16,
          height = 19,
          units = "cm")
@@ -1333,8 +1334,8 @@ annotation_size <- 1.5
                                shape = plant_functional_type)) +
      geom_point(alpha = 0.5, na.rm = TRUE) +
      geom_errorbar(alpha = 0.5, aes(ymin=lm_slope-lm_slope_error, ymax=lm_slope+lm_slope_error), width=0.05) +
-     # scale_colour_manual(values = c(col_shrub, col_graminoid, col_fern, col_forb, col_tree)) +
-     scale_colour_manual(values = c(col_shrub, col_graminoid, col_fern, col_forb, col_succulent, col_tree)) +
+     # scale_colour_manual(values = c(col_shrub, col_graminoid, col_forb, col_fern, col_tree)) +
+     scale_colour_manual(values = c(col_shrub, col_graminoid, col_forb, col_fern, col_succulent, col_tree)) +
      scale_shape_manual(values = pft_shapes) +
      labs(x = expression("Wind Speed (m s"^"-1"*")"),
           y = expression("Density (g m"^"-3"*")")) +
@@ -1356,49 +1357,6 @@ annotation_size <- 1.5
 
 }
 
-
-## Visualise overall wind interaction
-# Not currently used - would need to specify model object first
-# legend_loc <- c(0.25, 0.9)
-# legend_title <- expression("Wind speed (m s" ^ "-2" * ")")
-#
-# wind_levels <- "wind_speed[1, 3, 5]"  # set levels
-
-# predictions <- ggpredict(model_wind, terms = c("HAG_plotmean_of_cellmax_m", wind_levels))
-#
-# {
-#   (interaction_plot <- ggplot() +
-#      geom_line(
-#        data = predictions,
-#        aes(x = x, y = predicted, colour = group),
-#        size = 1) +
-#      geom_ribbon(data = predictions,
-#                  aes(x = x,
-#                      ymin = conf.low,
-#                      ymax = conf.high,
-#                      fill = group),
-#                  alpha = 0.2) +
-#      theme_plots() +
-#      theme(legend.title = element_text(size = 8),
-#            legend.text = element_text(size = 6, face = "italic"),
-#            legend.key.size = unit(0.9, "line"),
-#            legend.background = element_rect(color = "black",
-#                                             fill = "transparent", size = 4,
-#                                             linetype = "blank"),
-#            legend.position = legend_loc) +
-#      labs(x = "mean canopy height above ground (m)",
-#           y = expression("Aboveground biomass (g m" ^ "-2" * ")"),
-#           fill = "Wind speed", colour = "Wind speed") +
-#      scale_colour_viridis_d(legend_title, option = "magma", direction = 1, end = 0.8) +
-#      scale_fill_viridis_d(legend_title, option = "magma", direction = 1, end = 0.8)
-#   )
-#
-#   ggsave(interaction_plot,
-#          filename = "outputs/5_interaction_effects/wind_interaction.png",
-#          width = 12,
-#          height = 10,
-#          units = "cm")
-# }
 
 
 ### Ceate sun influence plot at PFT-level
@@ -1495,9 +1453,11 @@ df_for_wind <- df_for_influence %>%
 
 
 ### Generalised Linear Mixed Model (GLMM) nonparametric test
+## NB. We've used an identity link function because this has lower multicollinearity, more normal residuals and better  homoscedasticity compared with a log link function.
 wind_glmm <-lme4::glmer(AGB_g_m2 ~  HAG_plotmean_of_cellmax_m * wind_speed + (1|plant_functional_type), # Specify fixed and random effects
                         data = df_for_wind,
                         family = Gamma(link = "identity"))
+
 
 performance::check_model(wind_glmm)  # Evaluate model performence
 
@@ -1526,22 +1486,22 @@ df_for_sun <- df_for_influence %>%
 
 # This is our 'best model' a mixed effects model (gaussian error dist. with log link function) with solar elevation as an additive effect.
 # Models with solar elevation as an interactive effect would only converge when lower HAG values were removed.
-sun_glmm1 <- lme4::glmer(AGB_g_m2 ~  HAG_plotmean_of_cellmax_m + solar_elevation + (1|plant_functional_type), #specify fixed and random effects
+sun_glmm <- lme4::glmer(AGB_g_m2 ~  HAG_plotmean_of_cellmax_m + solar_elevation + (1|plant_functional_type), #specify fixed and random effects
                          data = df_for_sun,
                          family = gaussian(link='log'))
 
 #Model Diagnostics - not perfect but pass the sniff test...
-performance::check_model(sun_glmm1)  # Evaluate model performence
+performance::check_model(sun_glmm)  # Evaluate model performence
 
 png("outputs/5_interaction_effects/GLMM_diagnostics/sun_glmm diagnostics.png")
-performance::check_model(sun_glmm1)  # Evaluate model performence
+performance::check_model(sun_glmm)  # Evaluate model performence
 dev.off()
 
-summary(sun_glmm1) # Very small negative estimate for Solar slope - and not statistically significant
+summary(sun_glmm) # Very small negative estimate for Solar slope - and not statistically significant
 
-Anova(sun_glmm1)  # Analysis of Deviance  (Type II Wald chisquare tests)
+Anova(sun_glmm)  # Analysis of Deviance  (Type II Wald chisquare tests)
 
-MuMIn::r.squaredGLMM(sun_glmm1)  # Calcualte marginal (fixed effects only) and conditional (fixed and random effects) R2 values
+MuMIn::r.squaredGLMM(sun_glmm)  # Calcualte marginal (fixed effects only) and conditional (fixed and random effects) R2 values
 
 
 
@@ -1587,6 +1547,101 @@ MuMIn::r.squaredGLMM(sun_glmm1)  # Calcualte marginal (fixed effects only) and c
 # # # Export model parameters to table
 # # write.csv(model_results, "outputs/5_interaction_effects/Table S3 interaction model parameters.csv", row.names = F)
 
+
+# Visualise wind interaction efect overall ----
+legend_loc <- c(0.25, 0.9)
+legend_title <- expression("Wind speed (m s" ^ "-2" * ")")
+wind_levels <- "wind_speed[1, 3, 5]"  # set levels
+
+predictions_wind <- ggpredict(wind_glmm, terms = c("HAG_plotmean_of_cellmax_m", wind_levels))
+
+{
+  (interaction_plot_wind <- ggplot() +
+     geom_line(
+       data = predictions_wind,
+       aes(x = x, y = predicted, colour = group),
+       size = 1) +
+     geom_ribbon(data = predictions_wind,
+                 aes(x = x,
+                     ymin = conf.low,
+                     ymax = conf.high,
+                     fill = group),
+                 alpha = 0.2) +
+     theme_plots() +
+     theme(legend.title = element_text(size = 8),
+           legend.text = element_text(size = 6, face = "italic"),
+           legend.key.size = unit(0.9, "line"),
+           legend.background = element_rect(color = "black",
+                                            fill = "transparent", size = 4,
+                                            linetype = "blank"),
+           legend.position = legend_loc) +
+     labs(x = "mean canopy height (m)",
+          y = expression("Aboveground biomass (g m" ^ "-2" * ")"),
+          fill = "Wind speed", colour = "Wind speed") +
+     scale_colour_viridis_d(legend_title, option = "magma", direction = 1, end = 0.8) +
+     scale_fill_viridis_d(legend_title, option = "magma", direction = 1, end = 0.8)
+  )
+
+  ggsave(interaction_plot_wind,
+         filename = "outputs/5_interaction_effects/wind_interaction.png",
+         width = 12,
+         height = 10,
+         units = "cm")
+}
+
+
+# Visualise sun interaction efect overall ----
+legend_loc <- c(0.25, 0.9)
+legend_title <- expression("Sun elevation (°)")
+sun_levels <- "solar_elevation[25, 50, 75]"  # set levels
+
+predictions_sun <- ggpredict(sun_glmm, terms = c("HAG_plotmean_of_cellmax_m", sun_levels))
+
+{
+  (interaction_plot_sun <- ggplot() +
+     geom_line(
+       data = predictions_sun,
+       aes(x = x, y = predicted, colour = group),
+       size = 1) +
+     geom_ribbon(data = predictions_sun,
+                 aes(x = x,
+                     ymin = conf.low,
+                     ymax = conf.high,
+                     fill = group),
+                 alpha = 0.2) +
+     theme_plots() +
+     theme(legend.title = element_text(size = 8),
+           legend.text = element_text(size = 6, face = "italic"),
+           legend.key.size = unit(0.9, "line"),
+           legend.background = element_rect(color = "black",
+                                            fill = "transparent", size = 4,
+                                            linetype = "blank"),
+           legend.position = legend_loc) +
+     labs(x = "mean canopy height (m)",
+          y = expression("Aboveground biomass (g m" ^ "-2" * ")"),
+          fill = "Sun Elevation", colour = "Sun Elevation") +
+     scale_colour_viridis_d(legend_title, option = "magma", direction = 1, end = 0.8) +
+     scale_fill_viridis_d(legend_title, option = "magma", direction = 1, end = 0.8)
+  )
+
+  ggsave(interaction_plot_sun,
+         filename = "outputs/5_interaction_effects/sun_interaction.png",
+         width = 12,
+         height = 10,
+         units = "cm")
+}
+
+# combine interaction plots with patchwork
+(interaction_plots <- interaction_plot_wind + interaction_plot_sun +
+    plot_annotation(tag_levels = 'A') &
+    theme(plot.tag.position = c(0.0, 0.97))  # Control horizontal and vertical position of panel labels
+    )
+
+ggsave(interaction_plots,
+       filename = "outputs/Figure_S2_Interactions/Figure S2 - Interactions.png",
+       width = 18,
+       height = 9,
+       units = "cm")
 
 
 

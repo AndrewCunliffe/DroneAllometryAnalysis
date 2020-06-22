@@ -1,6 +1,6 @@
 Drone Allometry Experiment: Summary Report
 Andrew Cunliffe <andrewmcunliffe@gmail.com>
-Generated on 2020-06-05
+Generated on 2020-06-14
 
 ---------------------------------------------------------------------------------
 For the drone allometry project, focussing on seasonal biomass peaks, we have sampled 741 individual harvest plots, from 36 sites with 38 individual photogrammetric reconstructions
