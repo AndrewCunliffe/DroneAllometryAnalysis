@@ -1,9 +1,9 @@
-Drone Allometry Experiment: authorship contribution
+﻿Drone Allometry Experiment: authorship contribution
 Andrew Cunliffe <andrewmcunliffe@gmail.com>
 Generated on 2020-06-14
 
 ---------------------------------------------------------------------------------
-There are 49 co-authors.
+There are 49 authors.
 
 Author names:
 Full names:
