@@ -1,5 +1,6 @@
 # DroneAllometryAnalysis
 
+<<<<<<< HEAD
 # PhotoScan_Auto_Workflow
 An automated workflow for processing drone imagery in PhotoScan
 
@@ -57,3 +58,7 @@ Look at the number/% of points excluded by the reprojection filter.
 **On to the next pipeline...**
 We're still working on this...
 Just a little text to test pycharm link...blah
+=======
+Code and summary outputs from Cunliffe et al. "Global application of a drone photogrammetry protocol for predicting aboveground biomass in non-forest ecosystems" Remote Sensing in Ecology and Conservation (In Review, DOI TBC).
+
+>>>>>>> ea5012813dbb98bdf6a6d8cce56e76cc2807c48f
