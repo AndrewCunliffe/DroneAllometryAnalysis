@@ -1,31 +1,26 @@
 # DroneAllometryAnalysis
 
-<<<<<<< HEAD
-# PhotoScan_Auto_Workflow
-An automated workflow for processing drone imagery in PhotoScan
+This repository contains the code and summary outputs for "Global application of a drone photogrammetry protocol for predicting aboveground biomass in non-forest ecosystems" by Cunliffe _et al_., Remote Sensing in Ecology and Conservation (In Review, DOI TBC)..
 
-## NB. This code will need to be updated to work with the updated python API in MetaShape 1.6.0!!!
+The repository is split into three parts: (1) photogrammetric processing in Agisoft PhotoScan (now Metashape), (2) processing point clouds in Python  and (3) data analysis and visualisation in R
+
+## Part 1 - photogrammetric processing in Agisoft PhotoScan (now Metashape)
+_NB. This code will need to be updated to work with the updated python API in MetaShape 1.6.0!
 
 
 **1. Interactive: Collate & Prepare Datasets**
-- Find/start entry in the Image-Based Modelling Processing Log (use the ‘scripted log (for V2)’). Keep this log up to date as new parameters are confirmed and steps are completed.
-- Create project directory (E.g. ‘Sev_SEG_20180531’, note updated date code format).
-- Within the project directory, add an ‘Input_Data’ subdirectory, containing:
-	- ‘photos’ subdirectory.
+- Create project directory, add an â€˜Input_Dataâ€™ subdirectory, containing:
+	- â€˜photosâ€™ subdirectory.
 	- correctly formatted marker coordinate file (refer to example below!)
 	- Other relevant datasets (e.g. ground-based photographs, biomass harvest data sheets, elemental composition datasheets, etc.)
-- Determine the EPSG code of the desired coordinate reference system, and for the supplied marker coordinates (e.g. ‘WGS84 UTM 7N / EPSG:32607”, or “NAD83 UTM 7N / EPSG:26907”. Enter this into the processing log.
-- Set up ‘input_file.csv’ parameters: mapping all file paths, specifying quality settings and desired output files and resolutions.
+- Determine the EPSG code of the desired coordinate reference system, and for the supplied marker coordinates (e.g. â€˜WGS84 UTM 7N / EPSG:32607â€, or â€œNAD83 UTM 7N / EPSG:26907â€. Enter this into the processing log.
+- Set up â€˜input_file.csvâ€™ parameters: mapping all file paths, specifying quality settings and desired output files and resolutions.
 
 **2. Script 1: Camera Alignment**
-
-- Run ‘PhSc_Part1_SPC.py’ *(If running on ISCA note the Moab number for tracking purposes).*
+- Run â€˜PhSc_Part1_SPC.pyâ€™
 
 **3. Interactive**
-- If run on ISCA, note processing time, peak memory use and number of images (send information to Andy).
-- Review Console output for error and/or warning messages (If on ISCA, ‘e’ & ‘o’ files.
-Look at the number/% of points excluded by the reprojection filter.
-- Review the ‘XXX_project_settings.csv’ file, to assess the proportion of aligned images, and the number of tie points excluded by the reprojection error filter.
+- Review the â€˜XXX_project_settings.csvâ€™ file, to assess the proportion of aligned images, and the number of tie points excluded by the reprojection error filter.
 - Consider whether it is necessary to review image quality manually (e.g. water, etc.).
 - Review plausibility of sparse point cloud, and remove obvious outliers.
 - Review plausibility of camera positions (Show Cameras), check for no large gaps in coverage . 
@@ -33,32 +28,38 @@ Look at the number/% of points excluded by the reprojection filter.
 - Deselect markers for independent accuracy assessment.
 
 **4. Script 2: Dense Point Cloud**
-- Run ‘PhSc_Part2_DPC.py’ *(If running on ISCA note the Moab number for tracking purposes).*
+- Run â€˜PhSc_Part2_DPC.pyâ€™
 
 **5. Interactive**
-- If running on ISCA, note processing time, peak memory use, dense cloud quality setting and number of images (send information to Andy).
-- Review console output for errors.
-- Review plausibility of dense point cloud (& remove obvious outliers).
+- Review plausibility of dense point cloud.
 
 **6. Script 3: Export**
-- Run ‘PhSc_Part3_Exp.py’ *(If running on ISCA note the Moab number for tracking purposes).*
+- Run â€˜PhSc_Part3_Exp.pyâ€™
 
 **7. Interactive**
-- If run on ISCA, note processing time, peak memory use, whether texture was generated and number of images (send information to Andy).
-- Review console output for errors.
 - Review processing report:
 	-Inspect all graphics
 	-Inspect marker error values
 	-Inspect mean reprojection errors
 - Check all required files were generated:
-	-	.laz
+	- .laz
 	- Orthomosaic
-- Download/backup data.
 
-**On to the next pipeline...**
-We're still working on this...
-Just a little text to test pycharm link...blah
-=======
-Code and summary outputs from Cunliffe et al. "Global application of a drone photogrammetry protocol for predicting aboveground biomass in non-forest ecosystems" Remote Sensing in Ecology and Conservation (In Review, DOI TBC).
+## Part 2 - processing point clouds in python
+- Script_0_read_df.py
+- Script_1_QAQC.py
+- Script_2_summarise_df.py
+- Script_4_site_map.py
+- Script_5_geoJSONs.py
+- Script_6_DTM.py
+- Script_7_orthomosaic_clip.py
+- Script_8_point_cloud_clip.py
+- Script_9_point_cloud_merge.py
+- Script_10_HAG.py
 
->>>>>>> ea5012813dbb98bdf6a6d8cce56e76cc2807c48f
+
+## Part 3 - data analysis and visualisation in R
+
+
+
+
