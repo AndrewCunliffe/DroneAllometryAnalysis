@@ -1243,7 +1243,7 @@ dev.off()
 (solar_elevation_vs_sky <- ggplot(df_for_influence, aes(x=solar_elevation, y=sky_conditions_code)) +
     geom_point() +
     labs(x = expression("Solar Elevation (°)"),
-         y = expression("Sky code (were 0 = clear)")) +
+         y = expression("Sky code (where 0 = clear)")) +
     theme_plots())
 
 png("outputs/5_interaction_effects/Sun elevation vs sky conditions.png",
@@ -1487,24 +1487,26 @@ ggsave(
 
 ### Subset data
 ## Wind speed
-df_for_wind <- df_for_influence
-
-df_for_wind_old <- df_for_influence %>%
+df_for_wind <- df_for_influence %>%
   filter(!plant_functional_type %in% c("Succulent"))  # Remove Succulent observations so that GLMM will converge.
+
+## Cloud cover
+df_for_cloud <- df_for_influence %>%
+  mutate(cloud = if_else(sky_conditions_code >= 6, "Cloudy", "Clear"))
 
 ## sun elevation
 df_for_sun <- df_for_influence %>%
   filter(sky_conditions_code <= 5)  # Filter by sky conditions
 
-## sun elevation add factor coding for illumination conditions
-df_for_cloud <- df_for_influence %>%
-  mutate(cloud = if_else(sky_conditions_code >= 6, 1, 0))
 
-# df_for_sun_test <- df_for_influence %>%
-#   filter(sky_conditions_code <= 4)  %>%  # Filter by sky conditions
-#   filter(!plant_functional_type %in% c("Succulent", "Forb", "Fern", "Tree"))  # Remove Succulent observations so that GLMM will converge.
-#
-# unique(df_for_influence$plant_functional_type)
+
+# List  codes for survey that were cloudy
+Cloudy_surveys <- df_for_cloud %>%
+  filter(cloud == "Cloudy") %>%
+  distinct(survey_code)
+
+Cloudy_surveys
+
 
 ## Reviewing biomass distribution and heteroscedasticity:
 ggdensity(df_for_wind$AGB_g_m2, fill = "lightgray")  # Density plot
@@ -1522,165 +1524,85 @@ shapiro.test(df_for_sun$AGB_g_m2)  #Shapiro_Wilk W Test of normality
 ## (ii) nonparametric stats, or
 ## (iii) Generalised Linear Model (GLM)
 
-## Testing log transformation on biomass
-# Wind
-ggdensity(log(df_for_wind$AGB_g_m2), fill = "lightgray")  # Density plot
-ggqqplot(log(df_for_wind$AGB_g_m2))  # QQ plot
-shapiro.test(log(df_for_wind$AGB_g_m2))  #Shapiro_Wilk W Test of normality
-
-# Sun
-ggdensity(log(df_for_sun$AGB_g_m2), fill = "lightgray")  # Density plot
-ggqqplot(log(df_for_sun$AGB_g_m2))  # QQ plot
-shapiro.test(log(df_for_sun$AGB_g_m2))  #Shapiro_Wilk W Test of normality
-
-## Log transformed wind and sun data are near-normally distributed, although the
-## Shariro test still indicated non-normality.
 
 
-
-
-
-## Fit generalised linear mixed effects models to test wind speed as a fixed
-## (continuous) effect to test whether it is important and whether there is an
-## interaction with height.
-# This model predicts biomass as a function of
-## canopy height interacting with wind speed, with PFT included as a random
-## effect to remove variation among taxanomic groups from the overall model
-## result, to test the effects of canopy height and wind speed in isolation
-## from PFT effects
-
-### Modelling the influence of wind speed ####
-## Linear Mixed-Effects Model (LMM) parametric test on log transformed data
-# wind_model1 <-lmerTest::lmer(log(AGB_g_m2) ~  HAG_plotmean_of_cellmax_m * wind_speed + (1|plant_functional_type), # Specify fixed and random effects
-#                         data = df_for_wind)
-#
-# performance::check_model(wind_model1)  # Evaluate model performence
-# summary(wind_model1)
-# MuMIn::r.squaredGLMM(wind_model1)
-# # Anova(wind_model1)  # Analysis of Deviance  (Type II Wald chisquare tests)
-# png("outputs/5_interaction_effects/wind model diagnostics.png")
-# performance::check_model(wind_model1)  # Evaluate model performence
-# dev.off()
-#
-
-
-
-
-## Generalised Linear Mixed Model (GLMM)
-## Using an identity link function because this has lower multicollinearity, more normal residuals and better  homoscedasticity compared with a log link function.
-wind_model <-lme4::glmer(AGB_g_m2 ~  HAG_plotmean_of_cellmax_m * wind_speed + (1|plant_functional_type), # Specify fixed and random effects
-                        data = df_for_wind_old,
+### Modelling the influence of wind speed
+## Generalised Linear Mixed Model (GLMM) Using an identity link function because
+## this has lower multicollinearity, more normal residuals and better
+## homoscedasticity compared with a log link function.
+wind_model <-lme4::glmer(AGB_g_m2 ~  HAG_plotmean_of_cellmax_m * wind_speed + (1|plant_functional_type),
+                        data = df_for_wind,
                         family = Gamma(link = "identity"))
 
 performance::check_model(wind_model)  # Evaluate model performence
 summary(wind_model)  # See model summary
+# MuMIn::r.squaredGLMM(wind_model)  # Doesn't work with Gamma(“identity”)
+Anova(wind_model)  # Analysis of Deviance  (Type II Wald chisquare tests)
 
+# Calculate the variance explained by the PFT random effect
+random_effect_variance <- as.data.frame(VarCorr(wind_model),comp="Variance")[1, 'vcov']/(as.data.frame(VarCorr(wind_model),comp="Variance")[1, 'vcov']+as.data.frame(VarCorr(wind_model),comp="Variance")[2, 'vcov'])
+random_effect_variance <- round(random_effect_variance,2)*100
+print(paste("the PFT random effect explains ", random_effect_variance, " % of the variance in the model"))
 
-
+# Export diagnsotic plots
 png("outputs/5_interaction_effects/wind model diagnostics.png")
-performance::check_model(wind_model)  # Evaluate model performence
+performance::check_model(wind_model)
 dev.off()
 
-# MuMIn::r.squaredGLMM(wind_model)  # Doesn't work with Gamma(“identity”)
-Anova(wind_model2)  # Analysis of Deviance  (Type II Wald chisquare tests)
+
+
+### Modelling the influence of cloud cover
+cloud_model <- lmerTest::lmer(AGB_g_m2 ~  HAG_plotmean_of_cellmax_m  * cloud + (1|plant_functional_type),
+                              data = df_for_cloud)
+
+performance::check_model(cloud_model)  # Evaluate model performence
+
+summary(cloud_model)
+
+MuMIn::r.squaredGLMM(cloud_model)  # Doesn't work with Gamma(“identity”)
+Anova(cloud_model)  # Analysis of Deviance  (Type II Wald chisquare tests)
+
+# Calculate the variance explained by the PFT random effect
+random_effect_variance <- as.data.frame(VarCorr(cloud_model),comp="Variance")[1, 'vcov']/(as.data.frame(VarCorr(cloud_model),comp="Variance")[1, 'vcov']+as.data.frame(VarCorr(cloud_model),comp="Variance")[2, 'vcov'])
+random_effect_variance <- round(random_effect_variance,2)*100
+print(paste("the PFT random effect explains ", random_effect_variance, " % of the variance in the model"))
+
+# Export diagnsotic plots
+png("outputs/5_interaction_effects/cloud model diagnostics.png")
+performance::check_model(cloud_model)  # Evaluate model performence
+dev.off()
 
 
 
+### Modelling the influence of sun elevation
+sun_model <- lmerTest::lmer(AGB_g_m2 ~  HAG_plotmean_of_cellmax_m * solar_elevation + (1|plant_functional_type),
+                            data = df_for_sun)
 
-### sun elevation ####
-## Model with sun as addative effect
-# sun_model1 <-lmerTest::lmer(log(AGB_g_m2) ~  HAG_plotmean_of_cellmax_m + solar_elevation + (1|plant_functional_type), # Specify fixed and random effects
-#                             data = df_for_sun)
-#
-# performance::check_model(sun_model1)  # Evaluate model performence
-# summary(sun_model1)
-# MuMIn::r.squaredGLMM(sun_model1)
-
-## Model with sun as interaction effect
-# sun_model2 <-lmerTest::lmer(log(AGB_g_m2) ~  HAG_plotmean_of_cellmax_m * solar_elevation + (1|plant_functional_type), # Specify fixed and random effects
-#                              data = df_for_sun)
-#
-# performance::check_model(sun_model2)  # Evaluate model performence
-# summary(sun_model2)
-# MuMIn::r.squaredGLMM(sun_model2)
-
-
-
-
-## GLMM
-## This is our 'best model' a mixed effects model (gaussian error dist. with log link function) with solar elevation as an additive effect.
-## Models with solar elevation as an interactive effect are not robust, as they would only converge when lower HAG values were removed,.
-# sun_model3 <- lme4::glmer(AGB_g_m2 ~  HAG_plotmean_of_cellmax_m + solar_elevation + (1|plant_functional_type), #specify fixed and random effects
-#                          data = df_for_sun,
-#                          family = gaussian(link='log'))
-# performance::check_model(sun_model3)  # Evaluate model performence
-
-# Testing gaussian identity
-# sun_model <- lme4::glmer(AGB_g_m2 ~  HAG_plotmean_of_cellmax_m + solar_elevation + (1|plant_functional_type), #specify fixed and random effects
-#                          data = df_for_sun,
-#                          family = gaussian(link='identity'))
-sun_model <- lmerTest::lmer(AGB_g_m2 ~  HAG_plotmean_of_cellmax_m + solar_elevation + (1|plant_functional_type), #specify fixed and random effects
-                         data = df_for_sun)
 performance::check_model(sun_model)  # Evaluate model performence
+performance::check_collinearity(sun_model)
 
+summary(sun_model)
 
-## testing with gamma log function
-# sun_model4 <- lme4::glmer(AGB_g_m2 ~  HAG_plotmean_of_cellmax_m + solar_elevation + (1|plant_functional_type), #specify fixed and random effects
-#                         data = df_for_sun,
-#                         family = Gamma(link='log'))
-# performance::check_model(sun_model4)  # Evaluate model performence
-#
-#
-# ## NB. this Gamma identity model will not converge...
-#
-# sun_model5 <- lme4::glmer(AGB_g_m2 ~  HAG_plotmean_of_cellmax_m + solar_elevation + (1|plant_functional_type), #specify fixed and random effects
-#                         data = df_for_sun,
-#                         family = Gamma(link='identity'))
-# performance::check_model(sun_model5)  # Evaluate model performence
-#
-#
-# ## Testing GLMM Gamma identity model with only two PFTs.
-# sun_model6 <- lme4::glmer(AGB_g_m2 ~  HAG_plotmean_of_cellmax_m + solar_elevation + (1|plant_functional_type), #specify fixed and random effects
-#                           data = df_for_sun_test,
-#                           family = gaussian(link='identity'))
-# performance::check_model(sun_model6)  # Evaluate model performence
-#
-#
-#
-# #Model Diagnostics - not perfect but okay
-# performance::check_model(sun_glmm)  # Evaluate model performence
-#
+MuMIn::r.squaredGLMM(sun_model)  # Doesn't work with Gamma(“identity”)
+Anova(sun_model)  # Analysis of Deviance  (Type II Wald chisquare tests)
+
+# Calculate the variance explained by the PFT random effect
+random_effect_variance <- as.data.frame(VarCorr(sun_model),comp="Variance")[1, 'vcov']/(as.data.frame(VarCorr(sun_model),comp="Variance")[1, 'vcov']+as.data.frame(VarCorr(sun_model),comp="Variance")[2, 'vcov'])
+random_effect_variance <- round(random_effect_variance,2)*100
+print(paste("the PFT random effect explains ", random_effect_variance, " % of the variance in the model"))
+
+# Export diagnsotic plots
 png("outputs/5_interaction_effects/sun model diagnostics.png")
 performance::check_model(sun_model)  # Evaluate model performence
 dev.off()
 
-summary(sun_model) # Very small negative estimate for Solar slope
-
-Anova(sun_model)  # Analysis of Deviance  (Type II Wald chisquare tests)
-
-MuMIn::r.squaredGLMM(sun_model)  # Calcualte marginal (fixed effects only) and conditional (fixed and random effects) R2 values
 
 
-## influence of cloud cover ----
-cloud_model <- lmerTest::lmer(AGB_g_m2 ~  HAG_plotmean_of_cellmax_m  + solar_elevation + cloud + (1|plant_functional_type), #specify fixed and random effects
-                              data = df_for_cloud)
-performance::check_model(cloud_model)  # Evaluate model performence
-summary(cloud_model)
-png("outputs/5_interaction_effects/cloud model diagnostics.png")
-performance::check_model(cloud_model)  # Evaluate model performence
-dev.off()
-## Model interpretation
-## the influence of solar elevation and cloud cover are very small and statistically unclear.
-## Height dominates the prediciton of biomass.
-## The PFT random effect explains around 59% of the variance in the data.
-
-
-
-# Visualise wind interaction model ----
-wind_levels <- "wind_speed[1, 3, 5]"  # set levels
-predictions_wind <- ggpredict(wind_model, terms = c("HAG_plotmean_of_cellmax_m", wind_levels))
-
+#### Visualise interaction models ----
 {
+  wind_levels <- "wind_speed[1, 3, 5]"  # set levels
+  predictions_wind <- ggeffects::ggpredict(wind_model, terms = c("HAG_plotmean_of_cellmax_m", wind_levels))
+
   (interaction_plot_wind <- ggplot() +
      geom_line(
        data = predictions_wind,
@@ -1717,12 +1639,58 @@ predictions_wind <- ggpredict(wind_model, terms = c("HAG_plotmean_of_cellmax_m",
          units = "cm")
 }
 
+# Visualise cloud interaction model ----
+{
+  cloud_levels <- "cloud[Clear, Cloudy]"  # set levels
+  predictions_cloud <- ggeffects::ggpredict(cloud_model, terms = c("HAG_plotmean_of_cellmax_m", cloud_levels))
+
+  (interaction_plot_cloud <- ggplot() +
+      geom_line(
+        data = predictions_cloud,
+        aes(x = x, y = predicted, colour = group),
+        size = 1) +
+      geom_ribbon(data = predictions_cloud,
+                  aes(x = x,
+                      ymin = conf.low,
+                      ymax = conf.high,
+                      fill = group),
+                  alpha = 0.2) +
+      theme_plots() +
+      theme(legend.title = element_text(size = 8),
+            legend.text = element_text(size = 6, face = "italic"),
+            legend.key.size = unit(0.9, "line"),
+            legend.background = element_rect(color = "black",
+                                             fill = "transparent", size = 4,
+                                             linetype = "blank"),
+            legend.position = c(0.25, 0.9)) +
+      labs(x = "mean canopy height (m)",
+           y = expression("Aboveground biomass (g m" ^ "-2" * ")"),
+           fill = "Cloud Cover", colour = "Cloud Cover") +
+      coord_cartesian(ylim = c(0, 10000),
+                      xlim = c(0, 2),
+                      expand=FALSE) +
+      scale_colour_viridis_d(expression("Cloud Cover"), option = "magma", direction = 1, end = 0.8) +
+      scale_fill_viridis_d(expression("Cloud Cover"), option = "magma", direction = 1, end = 0.8)
+  )
+
+
+  ggsave(interaction_plot_cloud,
+         filename = "outputs/5_interaction_effects/cloud interaction.png",
+         width = 12,
+         height = 10,
+         units = "cm")
+  ggsave(interaction_plot_cloud,
+         filename = "outputs/Figure_S4_cloud/Figure S4 - cloud interaction.png",
+         width = 12,
+         height = 10,
+         units = "cm")
+}
 
 # Visualise sun interaction model ----
-sun_levels <- "solar_elevation[25, 50, 75]"  # set levels
-predictions_sun <- ggpredict(sun_model, terms = c("HAG_plotmean_of_cellmax_m", sun_levels))
-
 {
+  sun_levels <- "solar_elevation[25, 50, 75]"  # set levels
+  predictions_sun <- ggeffects::ggpredict(sun_model, terms = c("HAG_plotmean_of_cellmax_m", sun_levels))
+
   (interaction_plot_sun <- ggplot() +
      geom_line(
        data = predictions_sun,
@@ -1773,50 +1741,6 @@ ggsave(interaction_plots,
 
 
 
-
-# Visualise cloud interaction model ----
-cloud_levels <- "cloud[0, 1]"  # set levels
-sun_levels <- "solar_elevation[25, 50, 75]"  # set levels
-
-predictions_sun <- ggpredict(cloud_model, terms = c("HAG_plotmean_of_cellmax_m", sun_levels))
-predictions_sun <- ggpredict(cloud_model, terms = c("HAG_plotmean_of_cellmax_m", cloud_levels))
-
-
-  (interaction_plot_cloud <- ggplot() +
-     geom_line(
-       data = predictions_sun,
-       aes(x = x, y = predicted, colour = group),
-       size = 1) +
-     geom_ribbon(data = predictions_sun,
-                 aes(x = x,
-                     ymin = conf.low,
-                     ymax = conf.high,
-                     fill = group),
-                 alpha = 0.2) +
-     theme_plots() +
-     theme(legend.title = element_text(size = 8),
-           legend.text = element_text(size = 6, face = "italic"),
-           legend.key.size = unit(0.9, "line"),
-           legend.background = element_rect(color = "black",
-                                            fill = "transparent", size = 4,
-                                            linetype = "blank"),
-           legend.position = c(0.25, 0.9)) +
-     labs(x = "mean canopy height (m)",
-          y = expression("Aboveground biomass (g m" ^ "-2" * ")"),
-          fill = "Sun Elevation", colour = "Sun Elevation") +
-     coord_cartesian(ylim = c(0, 10000),
-                     xlim = c(0, 2),
-                     expand=FALSE) +
-     scale_colour_viridis_d(expression("Sun elevation (°)"), option = "magma", direction = 1, end = 0.8) +
-     scale_fill_viridis_d(expression("Cloud Cover Sun elevation (°)"), option = "magma", direction = 1, end = 0.8)
-  )
-
-
-ggsave(interaction_plot_cloud,
-       filename = "outputs/5_interaction_effects/cloud interaction.png",
-       width = 12,
-       height = 10,
-       units = "cm")
 
 
 
@@ -1918,84 +1842,4 @@ DTM_bias <- df_peak %>%
         "End of Report", "\n",
         file = "outputs/Report 4 - survey analysis.txt")
 
-
-
-
-
-
-### *************************************************
-#### 8. Sevilleta Analysis ----
-### *************************************************
-
-# working with: sev_df
-# Sevilleta species sampled include:
-#  c("Larrea tridentata", "Bouteloua eriopoda", "Gutierrezia sarothrae", "Yucca elata")
-# and also several one off species (huniper, pinion, cane cholla cacti, prickely pear cacti)
-# Compute scaling parameters from minimum and maximum values
-sev_max_mean_hag <- max(df_sev$HAG_plotmean_of_cellmax_m, na.rm = TRUE)
-sev_max_agb <- 1.35*max(df_sev$AGB_g_m2, na.rm = TRUE)
-
-
-df_sev %>%
-    group_by(binomial_species) %>%
-    add_count(binomial_species) %>%
-    filter(n>3) %>%
-    do({
-        plot <- ggplot(., aes(x = HAG_plotmean_of_cellmax_m,
-                              y = AGB_g_m2,
-                              colour = survey_code)) +
-            geom_point(shape = 1, na.rm = TRUE) +
-            scale_colour_viridis_d() +
-            labs(x = expression("Mean canopy height (m)"),
-                 y = expression("Dry biomass (g m"^"-2"*")"),
-                 title = paste(.$binomial_species)) +
-            theme_plots() +
-            theme(plot.title = element_text(face="italic")) +
-            theme(legend.position = c(0.35, 0.8)) +
-            coord_cartesian(ylim = c(0, sev_max_agb),
-                            xlim = c(0, sev_max_mean_hag),
-                            expand = FALSE) +
-            geom_smooth(method="lm",
-                        formula= y ~ x-1,
-                        aes(group=survey_code,
-                            colour=survey_code),
-                        se=TRUE, size=0.5, na.rm = TRUE)
-        ggsave(paste0("outputs/9_Sevilleta/", unique(.$binomial_species),
-                      ".png", sep = ''), width = 10, height = 10,
-               units = 'cm', plot = plot)                                       # Save plots
-    })
-
-
-# Mean HAG Vs. AGB grouped by species
-# (mean of maximum) canopy height as predictor of aboveground biomass by binomial taxa. Creates:
-# (i) individual plots,
-# (ii) multipanel figure,
-# (iii) model summary statistics (as Excel sheet)
-
-# Create dataframe to collate model summary statistics.
-sev_summary_table <- data.frame(binomial_species = character(),
-                                survey_code = character(),
-                                nls_slope = double(),
-                                nls_slope_error = double(),
-                                nls_r2 = double(),
-                                nls_p = double(),
-                                rob_slope = double(),
-                                rob_slope_error = double(),
-                                rob_r2 = double(),
-                                rob_p = double(),
-                                Observations = integer(),
-                                stringsAsFactors=FALSE
-)
-
-
-
-
-
-
-
-
-# check whether the unwanted file exists and remove it
-if (file.exists("Rplots.pdf")){
-    file.remove("Rplots.pdf")
-}
 
