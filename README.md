@@ -5,7 +5,7 @@ This repository contains the code and summary outputs for "Global application of
 The repository is split into three parts: (1) photogrammetric processing in Agisoft PhotoScan (now Metashape), (2) processing point clouds in Python  and (3) data analysis and visualisation in R
 
 ## Part 1 - photogrammetric processing in Agisoft PhotoScan (now Metashape)
-_NB. This code will need to be updated to work with the updated python API in MetaShape 1.6.0!
+_NB. This code will need to be updated to work with the updated python API in MetaShape 1.6.0!_
 
 
 **1. Interactive: Collate & Prepare Datasets**
