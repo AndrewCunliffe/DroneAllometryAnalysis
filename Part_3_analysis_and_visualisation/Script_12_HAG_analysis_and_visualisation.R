@@ -3,8 +3,6 @@
 ###*************************************************
 #### Load packages ----
 ###*************************************************
-# Download packags
-# install.packages("ggfortify")
 
 # Load packags
 library(devtools)
@@ -18,7 +16,6 @@ library(patchwork)                                                              
 library(grid)                                                                   # required for plot annotation
 library(gridExtra)                                                              # for arranging multi-panel plots.
 library(ggpubr)                                                                 # for arranging multi-panel plots.
-# devtools::install_github("valentinitnelav/plotbiomes") # because the plotbiomes package wasn't yet avaialble for R 3.6.1                                                           # Whittaker biomes for climate space plot
 library(plotbiomes)                                                             # Whittaker biomes for climate space plot
 library(lme4)                                                                   # For linear mixed effects models.
 library(lmerTest)                                                                   # For linear mixed effects models.
@@ -270,64 +267,6 @@ theme_plots <- function() {
           theme_bw()
           )
 
-        ## NB. Ideally this figure would use the small-scale coastline dataset to
-        ## eliminate 'clutter' of islands. However, there appears to be a bug in
-        ## coord_sf that prevents the small-scale coastline dataset from being
-        ## reprojected to the Robson projections
-        ## (https://github.com/tidyverse/ggplot2/issues/3949)
-        # coastlines <- ne_coastline(scale = "small", returnclass = "sf")
-
-        # coastlines <- ne_coastline(scale = "small", returnclass = "sf")
-
-
-        # (global_map <- ggplot(data = countries) +
-        #     geom_sf(colour = "grey90", fill = "grey90") +  # add continents
-        #     geom_sf(data = coastlines, colour = "black") +  # add coastlines outline
-        #     # ggtitle("Sampling sites") +  # Add title to plot
-        #     geom_sf(data = sites_sf, size = 2, shape = 21, fill = "red") +  # Add sampling sites to plot
-        #     coord_sf(crs = st_crs('ESRI:54030')) +  # Reprojects all layers already drawn to the specified (Robinson) projection.
-        #     theme_bw()
-        # )
-        #
-        # ggplot(data = st_wrap_dateline(coastlines)) + geom_sf(colour = "black") +
-        #   coord_sf(crs = st_crs('ESRI:54030')) +
-        #   theme_bw()
-        #
-        # ggplot(data = st_wrap_dateline(coastlines)) + geom_sf(colour = "black") +
-        #   coord_sf(crs = st_crs(54030)) +
-        #   theme_bw()
-#
-        # configure()
-        #
-        # library(sf)
-        # library(rgdal)
-        # library(rgeos)
-        # rgeos
-        # install.packages("rgeos")
-        #
-        #
-        # st_crs(54030)
-        # library(PROJ)
-        #
-        # library(ggpubr)
-        # install.packages("ggpubr")
-        #
-        # st_crs(54030)
-        #
-        # sessionInfo()
-        #
-        # install.packages("installr")
-        #
-        # library(installr)
-        #
-        # updateR()
-
-        # NB. Ideally this global map would use the Winkel-Tripel projction to
-        # further minimise distortion, however this projection isn't yet
-        # supported in the SF package so for simplicty we've used the Robinson
-        # projection
-
-
     # Export global map
         ggsave("outputs/Global map from R.png", width = 8, height = 6, dpi=500)
 
@@ -433,35 +372,6 @@ dev.off()
   dev.off()
 
 
-# # Original scatter plot - wih constrained intercept
-# (HAG_Vs_AGB_by_PFT1 <- ggplot(data = df_peak_ex_bryo,
-#                              aes(x = HAG_plotmean_of_cellmax_m,
-#                                  y = AGB_g_m2,
-#                                  colour = plant_functional_type,
-#                                  shape = plant_functional_type)) +
-#     geom_point(alpha = 0.7, na.rm = TRUE) +
-#     scale_colour_viridis_d() +
-#     scale_shape_manual(values = pft_shapes) +
-#     labs(x = expression("Mean canopy height (m)"),
-#          y = expression("Dry biomass (g m"^"-2"*")"),
-#          title = expression("Canopy height predicts aboveground biomass"),
-#          colour = "Plant functional type",
-#          shape = "Plant functional type") +
-#     theme_plots() +
-#     theme(plot.title = element_text(face="italic"),
-#           legend.title = element_text(size=8),
-#           legend.position = c(0.85, 0.79)) +
-#     coord_cartesian(ylim = c(0, max_agb), xlim = c(0, max_mean_hag), expand=FALSE) +
-#     geom_smooth(method="lm", formula= y ~ x-1,
-#                 aes(group=plant_functional_type,
-#                     colour=plant_functional_type),
-#                 se=FALSE, size=0.5, na.rm = TRUE)
-#   )
-
-
-
-
-
 
 ### ******************************
 ### 3. Survey-level analysis ####
@@ -550,7 +460,7 @@ df %>%
     ## Split df into training and validation 'sets', fit model to
     ## training set, and calculate residual error for the validation 'set'.
     ## with Leave-One-Out Cross-Validation (LOOCV), training set is n-1
-    ## and validation set is n=1, and the exericse is repeated n times.
+    ## and validation set is n=1, and the exercise is repeated n times.
     ## Setting K = n equals leave-one-out cross-validation.
     lm_loocv <- cvTools::repCV(model_lm, cost = rtmspe, K = nrow(species_dat))
 
@@ -974,12 +884,11 @@ df %>%
 
 
 ### *************************************************
-### *************************************************
 ## Exploratory post-hoc investigation of the influence of (i) wind speed and
 ## (ii) solar elevation on the relationship between mean canopy height and
 ## aboveground biomass, to better to understand how sensitive these
-## photogrammetric approaches are to these envrionmental parameters.
-### 6.1 Subset data and reanalyse for wind and influence testing ----
+## photogrammetric approaches are to these environmental parameters.
+### 6.1 Subset data and reanalyze for wind and influence testing ----
 # Subset dataframe for analysis of wind influence
 df_for_influence <- df %>%
   filter(PeakBiomass == TRUE) %>%                                               # Subset observations from peak biomass.
@@ -1746,22 +1655,19 @@ ggsave(interaction_plots,
 
 
 
-
-
-
 ### Assessing reconstruction 'success'
 ## Subjectively assigned quality scores
 # Histogram of subjectivly assigned scores
 hist(df_peak$point_cloud_quality)
 
 # Count the number of plots in each quality class
-# NB. this doesn't include the 16 discarded grass plots sthat would be in class 3!
+# NB. this doesn't include the 16 discarded grass plots that would be in class 3!
 plot_quality <- df_peak %>%
   group_by(point_cloud_quality) %>%
   summarise(n = n())
 
 # Calculate proportion of plots in each quality class
-# NB. this doesn't include the 16 discarded grass plots sthat would be in class 3!
+# NB. this doesn't include the 16 discarded grass plots that would be in class 3!
 plot_quality$proportion = plot_quality$n/741
 
 plot_quality
