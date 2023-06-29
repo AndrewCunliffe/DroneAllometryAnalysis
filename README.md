@@ -1,6 +1,6 @@
 # DroneAllometryAnalysis
 
-This repository contains the code and summary outputs for "Global application of a drone photogrammetry protocol for predicting aboveground biomass in non-forest ecosystems" by Cunliffe _et al_., Remote Sensing in Ecology and Conservation (In Review, DOI TBC)..
+This repository contains the code and summary outputs for "Global application of a drone photogrammetry protocol for predicting aboveground biomass in non-forest ecosystems" by Cunliffe _et al_., 2022 Remote Sensing in Ecology and Conservation  8(1):57-71. DOI: 10.1002/rse2.228.
 
 The repository is split into three parts: (1) photogrammetric processing in Agisoft PhotoScan (now Metashape), (2) processing point clouds in Python  and (3) data analysis and visualisation in R
 
